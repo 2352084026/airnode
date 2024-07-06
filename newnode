@@ -53,10 +53,11 @@ Description=Junction Node
 After=network.target
 
 [Service]
-ExecStart=$JUNCTIOND_PATH start
+ExecStart=$JUNCTIOND_PATH start --minimum-gas-prices=0.025amf
 Restart=always
 RestartSec=3
 LimitNOFILE=4096
+User=root
 
 [Install]
 WantedBy=multi-user.target
@@ -131,6 +132,10 @@ s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\1$BLOCK_HEIGHT| ;
 s|^(trust_hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"| ;
 s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.toml
 
+# 设置 minimum-gas-prices
+echo "设置 minimum-gas-prices..."
+sed -i 's/^minimum-gas-prices *=.*/minimum-gas-prices = "0.000025amf"/' $HOME/.junction/config/app.toml
+
 # 恢复 priv_validator_state.json 文件
 echo "恢复 priv_validator_state.json 文件..."
 if [ -f "$HOME/.junction/priv_validator_state.json.backup" ]; then
@@ -143,6 +148,7 @@ fi
 echo "重启 junctiond 服务并查看日志..."
 sudo systemctl restart junctiond
 sudo journalctl -u junctiond -f
+
 
 
 
