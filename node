@@ -110,8 +110,14 @@ function install_node() {
     pm2 start junctiond -- start && pm2 save && pm2 startup
     pm2 stop junctiond
 
-    # 使用 curl 和 tar 确保文件下载完毕后再进行下一步
-    download_with_retry "https://testnet-files.itrocket.net/airchains/snap_airchains.tar.lz4" "$HOME/.junction/snap_airchains.tar.lz4"
+    # 检查文件下载的URL是否有效
+    if curl --output /dev/null --silent --head --fail "https://testnet-files.itrocket.net/airchains/snap_airchains.tar.lz4"; then
+        echo "文件URL有效，开始下载..."
+        download_with_retry "https://testnet-files.itrocket.net/airchains/snap_airchains.tar.lz4" "$HOME/.junction/snap_airchains.tar.lz4"
+    else
+        echo "文件URL无效，请检查URL或联系管理员。"
+        exit 1
+    fi
 
     # 检查文件是否完整
     if [ -f "$HOME/.junction/snap_airchains.tar.lz4" ]; then
@@ -258,5 +264,6 @@ function main_menu() {
 
 # 显示主菜单
 main_menu
+
 
 
