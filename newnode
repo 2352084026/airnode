@@ -117,8 +117,21 @@ sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.j
 # 获取最新区块高度和信任区块高度、区块哈希
 echo "获取最新区块高度和信任区块高度、区块哈希..."
 LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
+
+# 确保最新高度是有效值
+if [ -z "$LATEST_HEIGHT" ] || [ "$LATEST_HEIGHT" -le 0 ]; then
+    echo "获取最新区块高度失败，请检查 SNAP_RPC 地址：$SNAP_RPC"
+    exit 1
+fi
+
 BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
 TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash)
+
+# 确保信任高度和哈希是有效值
+if [ -z "$TRUST_HASH" ] || [ "$BLOCK_HEIGHT" -le 0 ]; then
+    echo "获取信任区块高度或区块哈希失败，请检查 SNAP_RPC 地址：$SNAP_RPC"
+    exit 1
+fi
 
 # 输出区块信息并暂停 2 秒
 echo "最新区块高度: $LATEST_HEIGHT, 信任区块高度: $BLOCK_HEIGHT, 信任区块哈希: $TRUST_HASH"
@@ -134,7 +147,7 @@ s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.to
 
 # 设置 minimum-gas-prices
 echo "设置 minimum-gas-prices..."
-sed -i 's/^minimum-gas-prices *=.*/minimum-gas-prices = "0.000025amf"/' $HOME/.junction/config/app.toml
+sed -i 's/^minimum-gas-prices *=.*/minimum-gas-prices = "0.025amf"/' $HOME/.junction/config/app.toml
 
 # 恢复 priv_validator_state.json 文件
 echo "恢复 priv_validator_state.json 文件..."
@@ -148,6 +161,7 @@ fi
 echo "重启 junctiond 服务并查看日志..."
 sudo systemctl restart junctiond
 sudo journalctl -u junctiond -f
+
 
 
 
