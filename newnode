@@ -45,7 +45,6 @@ Description=Junction Node
 After=network.target
 
 [Service]
-User=root
 ExecStart=$JUNCTIOND_PATH start
 Restart=always
 RestartSec=3
@@ -136,6 +135,7 @@ fi
 echo "重启 junctiond 服务并查看日志..."
 sudo systemctl restart junctiond
 sudo journalctl -u junctiond -f
+
 
 
 
