@@ -34,6 +34,14 @@ else
     echo "junctiond 已安装，跳过下载步骤。"
 fi
 
+# 确认可执行文件存在
+if [ ! -x "$JUNCTIOND_PATH" ]; then
+    echo "junctiond 可执行文件未找到或没有执行权限：$JUNCTIOND_PATH"
+    exit 1
+else
+    echo "junctiond 可执行文件存在并有执行权限。"
+fi
+
 # 创建和配置 junctiond 服务文件
 SERVICE_FILE="/etc/systemd/system/junctiond.service"
 
@@ -135,6 +143,7 @@ fi
 echo "重启 junctiond 服务并查看日志..."
 sudo systemctl restart junctiond
 sudo journalctl -u junctiond -f
+
 
 
 
