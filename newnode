@@ -56,16 +56,27 @@ WantedBy=multi-user.target
 EOF
 
     # 重新加载 systemd 守护进程
+    echo "重新加载 systemd 守护进程..."
     sudo systemctl daemon-reload
 
     # 启用并启动 junctiond 服务
+    echo "启用 junctiond 服务..."
     sudo systemctl enable junctiond
 else
     echo "junctiond 服务文件已存在，跳过创建步骤。"
 fi
 
+# 检查服务文件是否正确创建
+if [ ! -f "$SERVICE_FILE" ]; then
+    echo "junctiond 服务文件未找到，请检查路径：$SERVICE_FILE"
+    exit 1
+else
+    echo "junctiond 服务文件已正确创建。"
+fi
+
 # 停止 junctiond 服务
 if systemctl list-units --type=service | grep -q "junctiond.service"; then
+    echo "停止 junctiond 服务..."
     sudo systemctl stop junctiond
 else
     echo "junctiond.service 未加载或未找到，请检查服务名称和安装情况。"
@@ -73,9 +84,15 @@ else
 fi
 
 # 备份 priv_validator_state.json 文件
-cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
+echo "备份 priv_validator_state.json 文件..."
+if [ -f "$HOME/.junction/data/priv_validator_state.json" ]; then
+    cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
+else
+    echo "priv_validator_state.json 文件未找到，跳过备份步骤。"
+fi
 
 # 重置节点状态
+echo "重置节点状态..."
 $JUNCTIOND_PATH tendermint unsafe-reset-all --home $HOME/.junction
 
 # 设置对等节点和 SNAP_RPC
@@ -83,17 +100,21 @@ peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.
 SNAP_RPC="https://airchains-testnet-rpc.itrocket.net:443"
 
 # 更新 config.toml 文件中的 persistent_peers
+echo "更新 config.toml 文件中的 persistent_peers..."
 sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml
 
 # 获取最新区块高度和信任区块高度、区块哈希
+echo "获取最新区块高度和信任区块高度、区块哈希..."
 LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
 BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
 TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash)
 
 # 输出区块信息并暂停 2 秒
-echo $LATEST_HEIGHT $BLOCK_HEIGHT $TRUST_HASH && sleep 2
+echo "最新区块高度: $LATEST_HEIGHT, 信任区块高度: $BLOCK_HEIGHT, 信任区块哈希: $TRUST_HASH"
+sleep 2
 
 # 更新 config.toml 文件中的相关配置项
+echo "更新 config.toml 文件中的相关配置项..."
 sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\1true| ;
 s|^(rpc_servers[[:space:]]+=[[:space:]]+).*$|\1\"$SNAP_RPC,$SNAP_RPC\"| ;
 s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\1$BLOCK_HEIGHT| ;
@@ -101,10 +122,18 @@ s|^(trust_hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"| ;
 s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.toml
 
 # 恢复 priv_validator_state.json 文件
-mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
+echo "恢复 priv_validator_state.json 文件..."
+if [ -f "$HOME/.junction/priv_validator_state.json.backup" ]; then
+    mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
+else
+    echo "备份的 priv_validator_state.json 文件未找到，跳过恢复步骤。"
+fi
 
 # 重启 junctiond 服务并查看日志
-sudo systemctl restart junctiond && sudo journalctl -u junctiond -f
+echo "重启 junctiond 服务并查看日志..."
+sudo systemctl restart junctiond
+sudo journalctl -u junctiond -f
+
 
 
 
