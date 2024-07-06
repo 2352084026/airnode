@@ -45,7 +45,6 @@ function check_go_installation() {
         return 1 
     fi
 }
-
 # 下载文件并确保完整下载
 function download_with_retry() {
     local url=$1
@@ -113,7 +112,7 @@ function install_node() {
     pm2 start junctiond -- start && pm2 save && pm2 startup
     pm2 stop junctiond
 
-    # 检查文件下载的URL是否有效
+     # 检查文件下载的URL是否有效
     if curl --output /dev/null --silent --head --fail "https://testnet-files.itrocket.net/airchains/snap_airchains.tar.lz4"; then
         echo "文件URL有效，开始下载..."
         download_with_retry "https://testnet-files.itrocket.net/airchains/snap_airchains.tar.lz4" "$HOME/.junction/snap_airchains.tar.lz4"
