@@ -1,12 +1,5 @@
 #!/bin/bash
 
-# 检查是否以root用户运行脚本
-if [ "$(id -u)" != "0" ]; then
-    echo "此脚本需要以root用户权限运行。"
-    echo "请尝试使用 'sudo -i' 命令切换到root用户，然后再次运行此脚本。"
-    exit 1
-fi
-
 # 下载和安装必要的工具
 install_if_needed() {
     local package=$1
@@ -21,25 +14,22 @@ install_if_needed() {
 install_if_needed curl
 install_if_needed jq
 
-# 安装或编译 junctiond 可执行文件（请根据项目实际情况更新）
+# 安装或编译 junctiond 可执行文件
 JUNCTIOND_PATH="/usr/local/bin/junctiond"
-JUNCTIOND_URL="https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond"
 
 # 检查是否已经存在 junctiond 可执行文件
 if [ ! -f "$JUNCTIOND_PATH" ]; then
     echo "下载并安装 junctiond..."
-    curl -L -o $JUNCTIOND_PATH $JUNCTIOND_URL
-    chmod +x $JUNCTIOND_PATH
+    # 替换为实际的下载或编译命令
+    # 示例：curl -L -o $JUNCTIOND_PATH https://example.com/path/to/junctiond
+    # 示例：git clone https://github.com/your-repo/junction.git && cd junction && make install
+    # 这里假设你从 GitHub 克隆并编译
+    git clone https://github.com/your-repo/junction.git
+    cd junction
+    make install
+    cd ..
 else
     echo "junctiond 已安装，跳过下载步骤。"
-fi
-
-# 确认可执行文件存在
-if [ ! -x "$JUNCTIOND_PATH" ]; then
-    echo "junctiond 可执行文件未找到或没有执行权限：$JUNCTIOND_PATH"
-    exit 1
-else
-    echo "junctiond 可执行文件存在并有执行权限。"
 fi
 
 # 创建和配置 junctiond 服务文件
@@ -53,92 +43,55 @@ Description=Junction Node
 After=network.target
 
 [Service]
-ExecStart=$JUNCTIOND_PATH start --minimum-gas-prices=0.025amf
+User=ubuntu  # 确保替换为实际运行服务的用户
+ExecStart=$JUNCTIOND_PATH start
 Restart=always
 RestartSec=3
 LimitNOFILE=4096
-User=root
 
 [Install]
 WantedBy=multi-user.target
 EOF
+
+    # 重新加载 systemd 守护进程
+    sudo systemctl daemon-reload
+
+    # 启用并启动 junctiond 服务
+    sudo systemctl enable junctiond
 else
     echo "junctiond 服务文件已存在，跳过创建步骤。"
 fi
 
-# 重新加载 systemd 守护进程
-echo "重新加载 systemd 守护进程..."
-sudo systemctl daemon-reload
-
-# 启用 junctiond 服务
-echo "启用 junctiond 服务..."
-sudo systemctl enable junctiond
-
-# 检查服务文件是否正确创建
-if [ ! -f "$SERVICE_FILE" ]; then
-    echo "junctiond 服务文件未找到，请检查路径：$SERVICE_FILE"
-    exit 1
-else
-    echo "junctiond 服务文件已正确创建。"
-fi
-
 # 停止 junctiond 服务
 if systemctl list-units --type=service | grep -q "junctiond.service"; then
-    echo "停止 junctiond 服务..."
     sudo systemctl stop junctiond
 else
     echo "junctiond.service 未加载或未找到，请检查服务名称和安装情况。"
+    exit 1
 fi
-
-# 检查服务状态
-echo "检查 junctiond 服务状态..."
-sudo systemctl status junctiond
 
 # 备份 priv_validator_state.json 文件
-echo "备份 priv_validator_state.json 文件..."
-if [ -f "$HOME/.junction/data/priv_validator_state.json" ]; then
-    cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
-else
-    echo "priv_validator_state.json 文件未找到，跳过备份步骤。"
-fi
+cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
 
 # 重置节点状态
-echo "重置节点状态..."
-$JUNCTIOND_PATH comet unsafe-reset-all --home $HOME/.junction
+$JUNCTIOND_PATH tendermint unsafe-reset-all --home $HOME/.junction
 
 # 设置对等节点和 SNAP_RPC
 peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,549f4850cd74672f31c88cf70a8ddcc5cb15335c@38.242.233.70:43456,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,de5a592264e6915274db120565fb1d1c2da9fba1@65.109.62.115:26656,3dc2f101876e1a26730f99c06a5a2eb6e2cc2349@65.21.69.53:33656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656,10ebb2bb819c23552db50ee668e41da9ded9b741@[2605:a140:3013:6065::1]:43456"
-SNAP_RPC="https://airchains-testnet-rpc.itrocket.net:443"
+SNAP_RPC="http://airchains-rpc1.kubenode.xyz:43457"
 
 # 更新 config.toml 文件中的 persistent_peers
-echo "更新 config.toml 文件中的 persistent_peers..."
 sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml
 
 # 获取最新区块高度和信任区块高度、区块哈希
-echo "获取最新区块高度和信任区块高度、区块哈希..."
 LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
-
-# 确保最新高度是有效值
-if [ -z "$LATEST_HEIGHT" ] || [ "$LATEST_HEIGHT" -le 0 ]; then
-    echo "获取最新区块高度失败，请检查 SNAP_RPC 地址：$SNAP_RPC"
-    exit 1
-fi
-
 BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
 TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash)
 
-# 确保信任高度和哈希是有效值
-if [ -z "$TRUST_HASH" ] || [ "$BLOCK_HEIGHT" -le 0 ]; then
-    echo "获取信任区块高度或区块哈希失败，请检查 SNAP_RPC 地址：$SNAP_RPC"
-    exit 1
-fi
-
 # 输出区块信息并暂停 2 秒
-echo "最新区块高度: $LATEST_HEIGHT, 信任区块高度: $BLOCK_HEIGHT, 信任区块哈希: $TRUST_HASH"
-sleep 2
+echo $LATEST_HEIGHT $BLOCK_HEIGHT $TRUST_HASH && sleep 2
 
 # 更新 config.toml 文件中的相关配置项
-echo "更新 config.toml 文件中的相关配置项..."
 sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\1true| ;
 s|^(rpc_servers[[:space:]]+=[[:space:]]+).*$|\1\"$SNAP_RPC,$SNAP_RPC\"| ;
 s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\1$BLOCK_HEIGHT| ;
@@ -146,21 +99,14 @@ s|^(trust_hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"| ;
 s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.toml
 
 # 设置 minimum-gas-prices
-echo "设置 minimum-gas-prices..."
-sed -i 's/^minimum-gas-prices *=.*/minimum-gas-prices = "0.025amf"/' $HOME/.junction/config/app.toml
+sed -i.bak -E "s|^(minimum-gas-prices[[:space:]]+=[[:space:]]+).*$|\1\"0.01photino\"|" $HOME/.junction/config/app.toml
 
 # 恢复 priv_validator_state.json 文件
-echo "恢复 priv_validator_state.json 文件..."
-if [ -f "$HOME/.junction/priv_validator_state.json.backup" ]; then
-    mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
-else
-    echo "备份的 priv_validator_state.json 文件未找到，跳过恢复步骤。"
-fi
+mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
 
 # 重启 junctiond 服务并查看日志
-echo "重启 junctiond 服务并查看日志..."
-sudo systemctl restart junctiond
-sudo journalctl -u junctiond -f
+sudo systemctl restart junctiond && sudo journalctl -u junctiond -f
+
 
 
 
