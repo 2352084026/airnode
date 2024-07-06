@@ -1,5 +1,50 @@
 #!/bin/bash
 
+# 检查并安装必要的工具
+install_if_needed() {
+    local package=$1
+    if dpkg-query -W "$package" >/dev/null 2>&1; then
+        echo "$package 已安装，跳过安装步骤。"
+    else
+        echo "安装 $package..."
+        sudo apt install -y "$package"
+    fi
+}
+
+install_if_needed curl
+install_if_needed jq
+
+# 创建和配置 junctiond 服务文件
+SERVICE_FILE="/etc/systemd/system/junctiond.service"
+
+if [ ! -f "$SERVICE_FILE" ]; then
+    echo "创建 junctiond 服务文件..."
+    sudo tee $SERVICE_FILE > /dev/null <<EOF
+[Unit]
+Description=Junction Node
+After=network.target
+
+[Service]
+User=ubuntu  # 确保替换为实际运行服务的用户
+ExecStart=/usr/local/bin/junctiond start  # 替换为 junctiond 可执行文件的实际路径
+Restart=always
+RestartSec=3
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # 重新加载 systemd 守护进程
+    sudo systemctl daemon-reload
+
+    # 启用并启动 junctiond 服务
+    sudo systemctl enable junctiond
+    sudo systemctl start junctiond
+else
+    echo "junctiond 服务文件已存在，跳过创建步骤。"
+fi
+
 # 停止 junctiond 服务
 if systemctl list-units --type=service | grep -q "junctiond.service"; then
     sudo systemctl stop junctiond
@@ -41,3 +86,4 @@ mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_va
 
 # 重启 junctiond 服务并查看日志
 sudo systemctl restart junctiond && sudo journalctl -u junctiond -f
+
