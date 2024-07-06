@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 检查并安装必要的工具
+# 下载和安装必要的工具
 install_if_needed() {
     local package=$1
     if dpkg-query -W "$package" >/dev/null 2>&1; then
@@ -16,6 +16,7 @@ install_if_needed jq
 
 # 创建和配置 junctiond 服务文件
 SERVICE_FILE="/etc/systemd/system/junctiond.service"
+JUNCTIOND_PATH="/usr/local/bin/junctiond"  # 替换为 junctiond 可执行文件的实际路径
 
 if [ ! -f "$SERVICE_FILE" ]; then
     echo "创建 junctiond 服务文件..."
@@ -26,7 +27,7 @@ After=network.target
 
 [Service]
 User=ubuntu  # 确保替换为实际运行服务的用户
-ExecStart=/usr/local/bin/junctiond start  # 替换为 junctiond 可执行文件的实际路径
+ExecStart=$JUNCTIOND_PATH start  # 替换为 junctiond 可执行文件的实际路径
 Restart=always
 RestartSec=3
 LimitNOFILE=4096
@@ -40,9 +41,14 @@ EOF
 
     # 启用并启动 junctiond 服务
     sudo systemctl enable junctiond
-    sudo systemctl start junctiond
 else
     echo "junctiond 服务文件已存在，跳过创建步骤。"
+fi
+
+# 确保 junctiond 可执行文件存在
+if [ ! -f "$JUNCTIOND_PATH" ]; then
+    echo "junctiond 可执行文件未找到，请检查路径：$JUNCTIOND_PATH"
+    exit 1
 fi
 
 # 停止 junctiond 服务
@@ -57,7 +63,7 @@ fi
 cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
 
 # 重置节点状态
-junctiond tendermint unsafe-reset-all --home $HOME/.junction
+$JUNCTIOND_PATH tendermint unsafe-reset-all --home $HOME/.junction
 
 # 设置对等节点和 SNAP_RPC
 peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,549f4850cd74672f31c88cf70a8ddcc5cb15335c@38.242.233.70:43456,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,de5a592264e6915274db120565fb1d1c2da9fba1@65.109.62.115:26656,3dc2f101876e1a26730f99c06a5a2eb6e2cc2349@65.21.69.53:33656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656,10ebb2bb819c23552db50ee668e41da9ded9b741@[2605:a140:3013:6065::1]:43456"
@@ -86,4 +92,5 @@ mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_va
 
 # 重启 junctiond 服务并查看日志
 sudo systemctl restart junctiond && sudo journalctl -u junctiond -f
+
 
