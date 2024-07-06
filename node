@@ -45,6 +45,7 @@ function check_go_installation() {
         return 1 
     fi
 }
+
 # 下载文件并确保完整下载
 function download_with_retry() {
     local url=$1
@@ -106,13 +107,10 @@ function install_node() {
     echo "export junctiond_RPC_PORT=$node_address" >> $HOME/.bash_profile
     source $HOME/.bash_profile   
 
-   继续从上次中断的部分：
-
-```bash
     pm2 start junctiond -- start && pm2 save && pm2 startup
     pm2 stop junctiond
 
-     # 检查文件下载的URL是否有效
+    # 检查文件下载的URL是否有效
     if curl --output /dev/null --silent --head --fail "https://testnet-files.itrocket.net/airchains/snap_airchains.tar.lz4"; then
         echo "文件URL有效，开始下载..."
         download_with_retry "https://testnet-files.itrocket.net/airchains/snap_airchains.tar.lz4" "$HOME/.junction/snap_airchains.tar.lz4"
@@ -199,7 +197,6 @@ function add_validator() {
   "commission-max-change-rate": "0.01",
   "min-self-delegation": "1"
 }
-
 EOF
     junctiond tx staking create-validator $HOME/validator.json --node $junctiond_RPC_PORT \
     --from=wallet \
@@ -266,6 +263,7 @@ function main_menu() {
 
 # 显示主菜单
 main_menu
+
 
 
 
