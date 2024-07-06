@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# 检查是否以root用户运行脚本
+if [ "$(id -u)" != "0" ]; then
+    echo "此脚本需要以root用户权限运行。"
+    echo "请尝试使用 'sudo -i' 命令切换到root用户，然后再次运行此脚本。"
+    exit 1
+fi
+
 # 下载和安装必要的工具
 install_if_needed() {
     local package=$1
@@ -14,9 +21,21 @@ install_if_needed() {
 install_if_needed curl
 install_if_needed jq
 
+# 安装或编译 junctiond 可执行文件（请根据项目实际情况更新）
+JUNCTIOND_PATH="/usr/local/bin/junctiond"
+JUNCTIOND_URL="https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond"
+
+# 检查是否已经存在 junctiond 可执行文件
+if [ ! -f "$JUNCTIOND_PATH" ]; then
+    echo "下载并安装 junctiond..."
+    curl -L -o $JUNCTIOND_PATH $JUNCTIOND_URL
+    chmod +x $JUNCTIOND_PATH
+else
+    echo "junctiond 已安装，跳过下载步骤。"
+fi
+
 # 创建和配置 junctiond 服务文件
 SERVICE_FILE="/etc/systemd/system/junctiond.service"
-JUNCTIOND_PATH="/usr/local/bin/junctiond"  # 替换为 junctiond 可执行文件的实际路径
 
 if [ ! -f "$SERVICE_FILE" ]; then
     echo "创建 junctiond 服务文件..."
@@ -26,8 +45,8 @@ Description=Junction Node
 After=network.target
 
 [Service]
-User=ubuntu  # 确保替换为实际运行服务的用户
-ExecStart=$JUNCTIOND_PATH start  # 替换为 junctiond 可执行文件的实际路径
+User=root
+ExecStart=$JUNCTIOND_PATH start
 Restart=always
 RestartSec=3
 LimitNOFILE=4096
@@ -43,12 +62,6 @@ EOF
     sudo systemctl enable junctiond
 else
     echo "junctiond 服务文件已存在，跳过创建步骤。"
-fi
-
-# 确保 junctiond 可执行文件存在
-if [ ! -f "$JUNCTIOND_PATH" ]; then
-    echo "junctiond 可执行文件未找到，请检查路径：$JUNCTIOND_PATH"
-    exit 1
 fi
 
 # 停止 junctiond 服务
@@ -92,5 +105,6 @@ mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_va
 
 # 重启 junctiond 服务并查看日志
 sudo systemctl restart junctiond && sudo journalctl -u junctiond -f
+
 
 
