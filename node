@@ -52,7 +52,7 @@ function download_with_retry() {
     local output=$2
 
     while true; do
-        if curl -L --fail --retry 3 --retry-delay 5 -o "$output" "$url"; then
+        if aria2c --continue=true --max-tries=5 --retry-wait=5 --out="$output" "$url"; then
             echo "文件下载成功：$output"
             return 0
         else
@@ -69,7 +69,7 @@ function install_node() {
 
     # 更新和安装必要的软件
     sudo apt update && sudo apt upgrade -y
-    sudo apt install -y curl iptables build-essential git wget jq make gcc nano tmux htop nvme-cli pkg-config libssl-dev libleveldb-dev tar clang bsdmainutils ncdu unzip libleveldb-dev lz4 snapd
+    sudo apt install -y curl iptables build-essential git wget jq make gcc nano tmux htop nvme-cli pkg-config libssl-dev libleveldb-dev tar clang bsdmainutils ncdu unzip libleveldb-dev lz4 snapd aria2
 
     # 安装 Go
     if ! check_go_installation; then
@@ -107,6 +107,9 @@ function install_node() {
     echo "export junctiond_RPC_PORT=$node_address" >> $HOME/.bash_profile
     source $HOME/.bash_profile   
 
+   继续从上次中断的部分：
+
+```bash
     pm2 start junctiond -- start && pm2 save && pm2 startup
     pm2 stop junctiond
 
@@ -264,6 +267,7 @@ function main_menu() {
 
 # 显示主菜单
 main_menu
+
 
 
 
