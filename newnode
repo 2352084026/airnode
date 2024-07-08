@@ -1,117 +1,69 @@
 #!/bin/bash
 
-# 下载和安装必要的工具
-install_if_needed() {
-    local package=$1
-    if dpkg-query -W "$package" >/dev/null 2>&1; then
-        echo "$package 已安装，跳过安装步骤。"
-    else
-        echo "安装 $package..."
-        sudo apt install -y "$package"
-    fi
-}
+# 更新和升级系统
+sudo apt update && sudo apt upgrade -y
 
-install_if_needed curl
-install_if_needed jq
+# 安装必要的依赖项
+sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc -y
 
-# 安装或编译 junctiond 可执行文件
-JUNCTIOND_PATH="/usr/local/bin/junctiond"
+# 安装 Go
+rm -rf $HOME/go
+sudo rm -rf /usr/local/go
+cd $HOME
+curl https://dl.google.com/go/go1.21.8.linux-amd64.tar.gz | sudo tar -C /usr/local -zxvf -
+cat <<'EOF' >>$HOME/.profile
+export GOROOT=/usr/local/go
+export GOPATH=$HOME/go
+export GO111MODULE=on
+export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+EOF
+source $HOME/.profile
+go version
 
-# 检查是否已经存在 junctiond 可执行文件
-if [ ! -f "$JUNCTIOND_PATH" ]; then
-    echo "下载并安装 junctiond..."
-    git clone https://github.com/your-repo/junction.git
-    cd junction
-    make install
-    cd ..
-else
-    echo "junctiond 已安装，跳过下载步骤。"
-fi
+# 安装 Airchains
+cd $HOME
+wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond
+chmod +x junctiond
+sudo mv junctiond /usr/local/bin/
+junctiond version
 
-# 创建和配置 junctiond 服务文件
-SERVICE_FILE="/etc/systemd/system/junctiond.service"
+# 设置链条并命名空气链
+junctiond init <3x3x3> --chain-id junction
 
-if [ ! -f "$SERVICE_FILE" ]; then
-    echo "创建 junctiond 服务文件..."
-    sudo tee $SERVICE_FILE > /dev/null <<EOF
+# 下载 Genesis 和地址簿
+curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json
+curl -Ls https://node39.top/testnet/airchains/addrbook.json > $HOME/.junction/config/addrbook.json
+
+# 创建服务
+sudo tee /etc/systemd/system/junctiond.service > /dev/null <<EOF
 [Unit]
-Description=Junction Node
-After=network.target
+Description=junctiond
+After=network-online.target
 
 [Service]
-User=ubuntu  # 确保替换为实际运行服务的用户
-ExecStart=$JUNCTIOND_PATH start
+User=root
+ExecStart=$(which junctiond) start
 Restart=always
 RestartSec=3
-LimitNOFILE=4096
+LimitNOFILE=65535
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-    # 重新加载 systemd 守护进程
-    sudo systemctl daemon-reload
+sudo systemctl daemon-reload
+sudo systemctl enable junctiond
 
-    # 启用并启动 junctiond 服务
-    sudo systemctl enable junctiond
-    sudo systemctl start junctiond
-else
-    echo "junctiond 服务文件已存在，跳过创建步骤。"
-fi
+# 设置最低气体价格
+sed -i 's|minimum-gas-prices =.*|minimum-gas-prices = "0.0001amf"|g' $HOME/.junction/config/app.toml
 
-# 设置 SNAP_RPC 变量
-SNAP_RPC="http://airchains-rpc1.kubenode.xyz:43457"
+# 下载快照（每 24 小时）
+sudo systemctl stop junctiond
+cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
+curl https://node39.top/testnet/airchains/snapshort-airchains.tar.lz4 | lz4 -dc - | tar -xf - -C $HOME/.junction
+mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
+sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
 
-# 获取最新区块高度
-LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
-echo "最新区块高度: $LATEST_HEIGHT"
-
-# 计算信任区块高度
-BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
-echo "信任区块高度: $BLOCK_HEIGHT"
-
-# 获取信任区块哈希
-TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash)
-echo "信任区块哈希: $TRUST_HASH"
-
-# 更新 config.toml 文件中的相关配置项
-CONFIG_FILE="/root/.junction/config/config.toml"
-if [ -f "$CONFIG_FILE" ]; then
-    sed -i "s|^snapshot-interval =.*|snapshot-interval = 100|" $CONFIG_FILE
-    sed -i "s|^trust-height =.*|trust-height = $BLOCK_HEIGHT|" $CONFIG_FILE
-    sed -i "s|^trust-hash =.*|trust-hash = \"$TRUST_HASH\"|" $CONFIG_FILE
-    sed -i "s|^persistent_peers =.*|persistent_peers = \"47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,549f4850cd74672f31c88cf70a8ddcc5cb15335c@38.242.233.70:43456,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,de5a592264e6915274db120565fb1d1c2da9fba1@65.109.62.115:26656,3dc2f101876e1a26730f99c06a5a2eb6e2cc2349@65.21.69.53:33656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656,10ebb2bb819c23552db50ee668e41da9ded9b741@[2605:a140:3013:6065::1]:43456\"|" $CONFIG_FILE
-    echo "更新 config.toml 文件成功。"
-else
-    echo "找不到 config.toml 文件。"
-fi
-
-# 恢复 priv_validator_state.json 文件
-STATE_FILE="/root/.junction/data/priv_validator_state.json"
-if [ -f "$STATE_FILE" ]; then
-    rm $STATE_FILE
-    echo "恢复 priv_validator_state.json 文件成功。"
-else
-    echo "找不到 priv_validator_state.json 文件。"
-fi
-
-# 重启 junctiond 服务
-sudo systemctl restart junctiond
-
-# 监控同步进度
-echo "监控同步进度..."
-while true; do
-    SYNC_STATUS=$(curl -s "$SNAP_RPC/status" | jq -r .result.sync_info.catching_up)
-    LATEST_BLOCK=$(curl -s "$SNAP_RPC/status" | jq -r .result.sync_info.latest_block_height)
-    echo "同步状态: $SYNC_STATUS, 最新区块: $LATEST_BLOCK"
-
-    if [ "$SYNC_STATUS" == "false" ]; then
-        echo "同步完成。"
-        break
-    fi
-
-    sleep 10
-done
 
 
 
