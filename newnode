@@ -45,6 +45,7 @@ fi
 
 # 设置链条并命名空气链 (请修改 Node-Name)
 NODE_NAME="333"
+rm -rf $HOME/.junction/config/genesis.json
 junctiond init $NODE_NAME --chain-id junction
 if [ $? -ne 0 ]; then
   echo "初始化节点失败"
@@ -155,6 +156,7 @@ if [ $? -ne 0 ]; then
   echo "重启 junctiond 服务失败"
   exit 1
 fi
+
 
 
 
