@@ -1,263 +1,116 @@
-#!/bin/bash
+# 更新并安装依赖
+echo "更新和升级系统软件包..."
+sudo apt update && sudo apt upgrade -y
+echo "安装必要的软件包..."
+sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc -y
 
-# 检查是否以root用户运行脚本
-if [ "$(id -u)" != "0" ]; then
-    echo "此脚本需要以root用户权限运行。"
-    echo "请尝试使用 'sudo -i' 命令切换到root用户，然后再次运行此脚本。"
-    exit 1
-fi
-
-# 检查并安装 Node.js 和 npm
-function install_nodejs_and_npm() {
-    if command -v node > /dev/null 2>&1; then
-        echo "Node.js 已安装"
-    else
-        echo "Node.js 未安装，正在安装..."
-        curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-    fi
-
-    if command -v npm > /dev/null 2>&1; then
-        echo "npm 已安装"
-    else
-        echo "npm 未安装，正在安装..."
-        sudo apt-get install -y npm
-    fi
-}
-
-# 检查并安装 PM2
-function install_pm2() {
-    if command -v pm2 > /dev/null 2>&1; then
-        echo "PM2 已安装"
-    else
-        echo "PM2 未安装，正在安装..."
-        npm install pm2@latest -g
-    fi
-}
-
-# 检查Go环境
-function check_go_installation() {
-    if command -v go > /dev/null 2>&1; then
-        echo "Go 环境已安装"
-        return 0 
-    else
-        echo "Go 环境未安装，正在安装..."
-        return 1 
-    fi
-}
-
-# 节点安装功能
-function install_node() {
-    install_nodejs_and_npm
-    install_pm2
-
-    # 更新和安装必要的软件
-    sudo apt update && sudo apt upgrade -y
-    sudo apt install -y curl iptables build-essential git wget jq make gcc nano tmux htop nvme-cli pkg-config libssl-dev libleveldb-dev tar clang bsdmainutils ncdu unzip libleveldb-dev lz4 snapd
-
-    # 安装 Go
-    if ! check_go_installation; then
-        sudo rm -rf /usr/local/go
-        curl -L https://go.dev/dl/go1.22.0.linux-amd64.tar.gz | sudo tar -xzf - -C /usr/local
-        echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' >> $HOME/.bash_profile
-        source $HOME/.bash_profile
-        go version
-    fi
-
-    # 安装所有二进制文件
-    wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond
-    chmod +x junctiond
-    sudo mv junctiond /usr/local/go/bin
-
-    # 配置junctiond
-    junctiond config chain-id junction
-    junctiond init "Moniker" --chain-id junction
-    junctiond config node tcp://localhost:43457
-
-    # 获取初始文件和地址簿
-    wget -O $HOME/.junction/config/genesis.json https://github.com/airchains-network/junction/releases/download/v0.1.0/genesis.json
-    wget https://smeby.fun/airchains-addrbook.json -O $HOME/.junction/config/addrbook.json
-    sed -i.bak -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0.025amf\"/;" ~/.junction/config/app.toml
-
-    # 配置节点
-    SEEDS=""
-peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656"
-    # 配置端口
-    node_address="tcp://localhost:43457"
-    sed -i -e "s%^proxy_app = \"tcp://127.0.0.1:26658\"%proxy_app = \"tcp://127.0.0.1:43458\"%; s%^laddr = \"tcp://127.0.0.1:26657\"%laddr = \"tcp://127.0.0.1:43457\"%; s%^pprof_laddr = \"localhost:6060\"%pprof_laddr = \"localhost:43460\"%; s%^laddr = \"tcp://0.0.0.0:26656\"%laddr = \"tcp://0.0.0.0:43456\"%; s%^prometheus_listen_addr = \":26660\"%prometheus_listen_addr = \":43466\"%" $HOME/.junction/config/config.toml
-    sed -i -e "s%^address = \"tcp://localhost:1317\"%address = \"tcp://0.0.0.0:43417\"%; s%^address = \":8080\"%address = \":43480\"%; s%^address = \"localhost:9090\"%address = \"0.0.0.0:43490\"%; s%^address = \"localhost:9091\"%address = \"0.0.0.0:43491\"%; s%:8545%:43445%; s%:8546%:43446%; s%:6065%:43465%" $HOME/.junction/config/app.toml
-    echo "export junctiond_RPC_PORT=$node_address" >> $HOME/.bash_profile
-    source $HOME/.bash_profile   
-
-    pm2 start junctiond -- start && pm2 save && pm2 startup
-    pm2 stop junctiond
-
-    # 使用你提供的节点同步方法
-    sudo systemctl stop junctiond
-
-    cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
-    junctiond tendermint unsafe-reset-all --home $HOME/.junction
-
-    peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,549f4850cd74672f31c88cf70a8ddcc5cb15335c@38.242.233.70:43456,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,de5a592264e6915274db120565fb1d1c2da9fba1@65.109.62.115:26656,3dc2f101876e1a26730f99c06a5a2eb6e2cc2349@65.21.69.53:33656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656,10ebb2bb819c23552db50ee668e41da9ded9b741@[2605:a140:3013:6065::1]:43456"  
-    SNAP_RPC="https://junction-testnet-rpc.nodesync.top"
-
-    sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
-
-    LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height);
-    BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000));
-    TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash) 
-
-    echo $LATEST_HEIGHT $BLOCK_HEIGHT $TRUST_HASH && sleep 2
-
-    sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\1true| ;
-    s|^(rpc_servers[[:space:]]+=[[:space:]]+).*$|\1\"$SNAP_RPC,$SNAP_RPC\"| ;
-    s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\1$BLOCK_HEIGHT| ;
-    s|^(trust_hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"| ;
-    s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.toml
-
-    mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
-
-    sudo systemctl restart junctiond && sudo journalctl -u junctiond -f
-
-    echo '====================== 安装完成,请退出脚本后执行 source $HOME/.bash_profile 以加载环境变量==========================='
-    
-}
-
-# 查看junction 服务状态
-function check_service_status() {
-    pm2 list
-}
-
-# junction 节点日志查询
-function view_logs() {
-    pm2 logs junctiond
-}
-
-# 卸载节点功能
-function uninstall_node() {
-    echo "你确定要卸载junction 节点程序吗？这将会删除所有相关的数据。[Y/N]"
-    read -r -p "请确认: " response
-
-    case "$response" in
-        [yY][eE][sS]|[yY]) 
-            echo "开始卸载节点程序..."
-            pm2 stop junctiond && pm2 delete junctiond
-            rm -rf $HOME/.junctiond && rm -rf $HOME/junction $(which junctiond) && rm -rf $HOME/.junction
-            echo "节点程序卸载完成。"
-            ;;
-        *)
-            echo "取消卸载操作。"
-            ;;
-    esac
-}
-
-# 创建钱包
-function add_wallet() {
-    junctiond keys add wallet
-}
-
-# 导入钱包
-function import_wallet() {
-    junctiond keys add wallet --recover
-}
-
-# 查询余额
-function check_balances() {
-    read -p "请输入钱包地址: " wallet_address
-    junctiond query bank balances "$wallet_address" --node $junctiond_RPC_PORT
-}
-
-# 查看节点同步状态
-function check_sync_status() {
-    junctiond status --node $junctiond_RPC_PORT | jq .sync_info
-}
-
-# 创建验证者
-function add_validator() {
-    read -p "请输入你的验证者名称: " validator_name
-    sudo tee ~/validator.json > /dev/null <<EOF
-{
-  "pubkey": $(junctiond tendermint show-validator),
-  "amount": "1000000amf",
-  "moniker": "$validator_name",
-  "details": "dalubi",
-  "commission-rate": "0.10",
-  "commission-max-rate": "0.20",
-  "commission-max-change-rate": "0.01",
-  "min-self-delegation": "1"
-}
-
+# 安装 GO（amd64 - x86）
+echo "删除任何现有的 GO 安装..."
+rm -rf $HOME/go
+sudo rm -rf /usr/local/go
+echo "下载并安装 GO..."
+cd $HOME
+curl -L https://dl.google.com/go/go1.21.8.linux-amd64.tar.gz | sudo tar -C /usr/local -zxvf -
+cat <<'EOF' >>$HOME/.profile
+export GOROOT=/usr/local/go
+export GOPATH=$HOME/go
+export GO111MODULE=on
+export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 EOF
-    junctiond tx staking create-validator $HOME/validator.json --node $junctiond_RPC_PORT \
-    --from=wallet \
-    --chain-id=junction \
-    --fees 10000amf
-}
+echo "重新加载配置文件以应用 GO 环境变量..."
+source $HOME/.profile
+echo "检查 GO 版本..."
+go version
 
+# 安装 Airchains（amd64）
+echo "下载并安装 Airchains 的 junctiond..."
+cd $HOME
+wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond
+chmod +x junctiond
+sudo mv junctiond /usr/local/bin/
+echo "检查 junctiond 版本..."
+junctiond version
 
-# 给自己地址验证者质押
-function delegate_self_validator() {
-read -p "请输入质押代币数量,比如你有1个amf,请输入1000000，以此类推: " math
-read -p "请输入钱包名称: " wallet_name
-junctiond tx staking delegate $(junctiond keys show $wallet_name --bech val -a)  ${math}amf --from $wallet_name --chain-id=junction --fees 10000amf --node $junctiond_RPC_PORT  -y
+# 设置链条并命名空气链
+echo "初始化链条并命名..."
+junctiond init <Change-Name> --chain-id junction
 
-}
+# 下载 Genesis 和地址簿
+echo "下载 Genesis 和地址簿..."
+curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json
+curl -Ls https://node39.top/testnet/airchains/addrbook.json > $HOME/.junction/config/addrbook.json
 
-function unjail() {
-read -p "请输入钱包名称: " wallet_name
-junctiond tx slashing unjail --from $wallet_name --fees=10000amf --chain-id=junction --node $junctiond_RPC_PORT
+# 创建服务
+echo "创建 junctiond 服务..."
+sudo tee /etc/systemd/system/junctiond.service > /dev/null <<EOF
+[Unit]
+Description=junctiond
+After=network-online.target
+[Service]
+User=root
+ExecStart=$(which junctiond) start
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+[Install]
+WantedBy=multi-user.target
+EOF
 
-}
+echo "重新加载 systemd 守护进程并启用 junctiond 服务..."
+sudo systemctl daemon-reload
+sudo systemctl enable junctiond
 
+# 设置最低气体费用
+echo "设置最低气体费用..."
+sed -i 's|minimum-gas-prices =.*|minimum-gas-prices = "0.0001amf"|g' $HOME/.junction/config/app.toml
 
-# 主菜单
-function main_menu() {
-    while true; do
-        clear
-        echo "脚本以及教程由推特用户大赌哥 @y95277777 编写，免费开源，请勿相信收费"
-        echo "================================================================"
-        echo "节点社区 Telegram 群组:https://t.me/niuwuriji"
-        echo "节点社区 Telegram 频道:https://t.me/niuwuriji"
-        echo "节点社区 Discord 社群:https://discord.gg/GbMV5EcNWF"
-        echo "退出脚本，请按键盘ctrl c退出即可"
-        echo "请选择要执行的操作:"
-        echo "1. 安装节点"
-        echo "2. 创建钱包"
-        echo "3. 导入钱包"
-        echo "4. 查看钱包地址余额"
-        echo "5. 查看节点同步状态"
-        echo "6. 查看当前服务状态"
-        echo "7. 运行日志查询"
-        echo "8. 卸载节点"
-        echo "9. 设置快捷键"  
-        echo "10. 创建验证者"  
-        echo "11. 给自己质押" 
-        echo "12. 释放出监狱"
-        read -p "请输入选项（1-12）: " OPTION
+# 下载快照（每 24 小时）
+echo "下载快照并停止 junctiond 服务..."
+sudo systemctl stop junctiond
+cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
+curl https://node39.top/testnet/airchains/snapshot-airchains.tar.lz4 | lz4 -dc - | tar -xf - -C $HOME/.junction
+mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
+echo "重新启动 junctiond 服务并跟踪日志..."
+sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
 
-        case $OPTION in
-        1) install_node ;;
-        2) add_wallet ;;
-        3) import_wallet ;;
-        4) check_balances ;;
-        5) check_sync_status ;;
-        6) check_service_status ;;
-        7) view_logs ;;
-        8) uninstall_node ;;
-        9) check_and_set_alias ;;
-        10) add_validator ;;
-        11) delegate_self_validator ;;
-        12) unjail ;;
-        *) echo "无效选项。" ;;
-        esac
-        echo "按任意键返回主菜单..."
-        read -n 1
-    done
-    
-}
+# 检查同步状态（假 -> 完成）
+echo "检查同步状态..."
+junctiond status 2>&1 | jq .sync_info
 
-# 显示主菜单
-main_menu
+# 同步完成后修改 rpc 地址
+echo "修改配置文件以设置 RPC 地址..."
+vi $HOME/.junction/config/config.toml
+# 将 laddr 修改为 "tcp://0.0.0.0:26657"
+
+# 重置并配置节点
+echo "停止 junctiond 服务并重置节点..."
+sudo systemctl stop junctiond
+
+cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
+junctiond tendermint unsafe-reset-all --home $HOME/.junction
+
+peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656"
+
+sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
+
+SNAP_RPC="http://your-snap-rpc-endpoint:26657"
+LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
+BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
+TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash) 
+
+echo $LATEST_HEIGHT $BLOCK_HEIGHT $TRUST_HASH && sleep 2
+
+sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\1true| ;
+s|^(rpc_servers[[:space:]]+=[[:space:]]+).*$|\1\"$SNAP_RPC,$SNAP_RPC\"| ;
+s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\1$BLOCK_HEIGHT| ;
+s|^(trust_hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"| ;
+s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.toml
+
+mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
+
+echo "重新启动 junctiond 服务并跟踪日志..."
+sudo systemctl restart junctiond && sudo journalctl -u junctiond -f
+
 
 
 
