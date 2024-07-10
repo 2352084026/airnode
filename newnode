@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # 更新和升级软件包
 sudo apt update && sudo apt upgrade -y
 sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc -y
@@ -52,24 +54,8 @@ sudo systemctl enable junctiond
 # 设置最小 Gas 价格
 sed -i 's|minimum-gas-prices =.*|minimum-gas-prices = "0.0001amf"|g' $HOME/.junction/config/app.toml
 
-# 下载快照（每 24 小时）
-sudo systemctl stop junctiond
-cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
-curl https://node39.top/testnet/airchains/snapshort-airchains.tar.lz4 | lz4 -dc - | tar -xf - -C $HOME/.junction
-mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
-sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
-
-# 检查同步状态 (False -> 同步完成)
-junctiond status 2>&1 | jq .sync_info
-
-# 同步完成后修改 RPC 地址
-vi $HOME/.junction/config/config.toml
-# 修改 laddr 为 "tcp://0.0.0.0:26657"
-sudo systemctl restart junctiond
-
 # 重置数据并配置节点
 sudo systemctl stop junctiond
-
 cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
 junctiond tendermint unsafe-reset-all --home $HOME/.junction
 
@@ -78,9 +64,9 @@ SNAP_RPC="https://airchains-testnet-rpc.itrocket.net:443"
 
 sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
 
-LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height);
-BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000));
-TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash) 
+LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
+BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
+TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash)
 
 echo $LATEST_HEIGHT $BLOCK_HEIGHT $TRUST_HASH && sleep 2
 
@@ -93,6 +79,7 @@ s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.to
 mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
 
 sudo systemctl restart junctiond && sudo journalctl -u junctiond -f
+
 
 
 
