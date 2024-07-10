@@ -59,7 +59,7 @@ sudo systemctl stop junctiond
 cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
 junctiond tendermint unsafe-reset-all --home $HOME/.junction
 
-peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,549f4850cd74672f31c88cf70a8ddcc5cb15335c@38.242.233.70:43456,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,de5a592264e6915274db120565fb1d1c2da9fba1@65.109.62.115:26656,3dc2f101876e1a26730f99c06a5a2eb6e2cc2349@65.21.69.53:33656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656,10ebb2bb819c23552db50ee668e41da9ded9b741@[2605:a140:3013:6065::1]:43456"  
+peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,549f4850cd74672f31c88cf70a8ddcc5cb15335c@38.242.233.70:43456,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656,10ebb2bb819c23552db50ee668e41da9ded9b741@[2605:a140:3013:6065::1]:43456"  
 SNAP_RPC="https://airchains-testnet-rpc.itrocket.net:443"
 
 sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
@@ -79,6 +79,7 @@ s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.to
 mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
 
 sudo systemctl restart junctiond && sudo journalctl -u junctiond -f
+
 
 
 
