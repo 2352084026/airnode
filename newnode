@@ -27,7 +27,7 @@ cd $HOME
 junctiond version
 
 # 设置链条并命名空气链 (请修改 <Node-Name>)
-junctiond init <Node-Name> --chain-id junction
+junctiond init <3x3x3> --chain-id junction
 
 # 下载 Genesis 和地址簿
 curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json
@@ -105,6 +105,7 @@ junctiond status 2>&1 | jq .sync_info
 # 同步完成后修改 rpc 地址
 sed -i 's|^laddr = "tcp://127.0.0.1:26657"|laddr = "tcp://0.0.0.0:26657"|g' $HOME/.junction/config/config.toml
 sudo systemctl restart junctiond
+
 
 
 
