@@ -65,6 +65,19 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# 检查并更新配置文件
+CONFIG_FILE="$HOME/.junction/config/config.toml"
+if [ ! -f $CONFIG_FILE ]; then
+  echo "config.toml 文件不存在"
+  exit 1
+fi
+
+sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\1true| ;
+s|^(rpc_servers[[:space:]]+=[[:space:]]+).*$|\1\"https://airchains-testnet-rpc.itrocket.net:443,https://airchains-testnet-rpc.itrocket.net:443\"| ;
+s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\1893288| ;
+s|^(trust_hash[[:space:]]+=[[:space:]]+).*$|\1\"5799ECAC8CEBEFE6F67525AE5151394345A53632388C730DFFCD9E58A4935B65\"| ;
+s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $CONFIG_FILE
+
 # 创建服务
 sudo tee /etc/systemd/system/junctiond.service > /dev/null <<EOF
 [Unit]
@@ -156,6 +169,7 @@ if [ $? -ne 0 ]; then
   echo "重启 junctiond 服务失败"
   exit 1
 fi
+
 
 
 
