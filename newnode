@@ -1,19 +1,12 @@
-#!/bin/bash
-
-# 更新并安装依赖项
+# 更新和升级软件包
 sudo apt update && sudo apt upgrade -y
 sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc -y
 
-# 安装 GO (amd64 - x86)
+# 安装 Go: (amd64 - x86)
 rm -rf $HOME/go
 sudo rm -rf /usr/local/go
 cd $HOME
-curl -L https://dl.google.com/go/go1.21.8.linux-amd64.tar.gz | sudo tar -C /usr/local -zxvf -
-if [ $? -ne 0 ]; then
-  echo "安装 GO 失败"
-  exit 1
-fi
-
+curl https://dl.google.com/go/go1.21.8.linux-amd64.tar.gz | sudo tar -C /usr/local -zxvf -
 cat <<'EOF' >>$HOME/.profile
 export GOROOT=/usr/local/go
 export GOPATH=$HOME/go
@@ -22,61 +15,21 @@ export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 EOF
 source $HOME/.profile
 go version
-if [ $? -ne 0 ]; then
-  echo "GO 配置失败"
-  exit 1
-fi
 
-# 安装 Airchains (amd64)
+# 安装 Airchains: amd64
 cd $HOME
 wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond
-if [ $? -ne 0 ]; then
-  echo "下载 junctiond 失败"
-  exit 1
-fi
-
 chmod +x junctiond
 sudo mv junctiond /usr/local/bin/
+cd $HOME
 junctiond version
-if [ $? -ne 0 ]; then
-  echo "安装 junctiond 失败"
-  exit 1
-fi
 
-# 设置链条并命名空气链 (请修改 Node-Name)
-NODE_NAME="333"
-rm -rf $HOME/.junction/config/genesis.json
-junctiond init $NODE_NAME --chain-id junction
-if [ $? -ne 0 ]; then
-  echo "初始化节点失败"
-  exit 1
-fi
+# 设置链和名称 Airchains
+junctiond init 333 --chain-id junction
 
 # 下载 Genesis 和地址簿
-curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json
-if [ $? -ne 0 ]; then
-  echo "下载 genesis 文件失败"
-  exit 1
-fi
-
+curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json 
 curl -Ls https://node39.top/testnet/airchains/addrbook.json > $HOME/.junction/config/addrbook.json
-if [ $? -ne 0 ]; then
-  echo "下载地址簿失败"
-  exit 1
-fi
-
-# 检查并更新配置文件
-CONFIG_FILE="$HOME/.junction/config/config.toml"
-if [ ! -f $CONFIG_FILE ]; then
-  echo "config.toml 文件不存在"
-  exit 1
-fi
-
-sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\1true| ;
-s|^(rpc_servers[[:space:]]+=[[:space:]]+).*$|\1\"https://airchains-testnet-rpc.itrocket.net:443,https://airchains-testnet-rpc.itrocket.net:443\"| ;
-s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\1893288| ;
-s|^(trust_hash[[:space:]]+=[[:space:]]+).*$|\1\"5799ECAC8CEBEFE6F67525AE5151394345A53632388C730DFFCD9E58A4935B65\"| ;
-s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $CONFIG_FILE
 
 # 创建服务
 sudo tee /etc/systemd/system/junctiond.service > /dev/null <<EOF
@@ -96,47 +49,40 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable junctiond
 
-# 设置最低气体费
+# 设置最小 Gas 价格
 sed -i 's|minimum-gas-prices =.*|minimum-gas-prices = "0.0001amf"|g' $HOME/.junction/config/app.toml
 
-# 下载并恢复快照
+# 下载快照（每 24 小时）
+sudo systemctl stop junctiond
+cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
+curl https://node39.top/testnet/airchains/snapshort-airchains.tar.lz4 | lz4 -dc - | tar -xf - -C $HOME/.junction
+mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
+sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
+
+# 检查同步状态 (False -> 同步完成)
+junctiond status 2>&1 | jq .sync_info
+
+# 同步完成后修改 RPC 地址
+vi $HOME/.junction/config/config.toml
+# 修改 laddr 为 "tcp://0.0.0.0:26657"
+sudo systemctl restart junctiond
+
+# 重置数据并配置节点
 sudo systemctl stop junctiond
 
 cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
 junctiond tendermint unsafe-reset-all --home $HOME/.junction
 
-# 更新对等节点列表
-peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656"
-
+peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,549f4850cd74672f31c88cf70a8ddcc5cb15335c@38.242.233.70:43456,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,de5a592264e6915274db120565fb1d1c2da9fba1@65.109.62.115:26656,3dc2f101876e1a26730f99c06a5a2eb6e2cc2349@65.21.69.53:33656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656,10ebb2bb819c23552db50ee668e41da9ded9b741@[2605:a140:3013:6065::1]:43456"  
 SNAP_RPC="https://airchains-testnet-rpc.itrocket.net:443"
 
-# 检测对等节点状态
-check_peer() {
-  local peer=$1
-  local address=$(echo $peer | cut -d'@' -f2)
-  nc -zv -w5 ${address//:/ } &> /dev/null
-  if [ $? -eq 0 ]; then
-    echo "$peer 是正常的"
-  else
-    echo "$peer 无法连接"
-  fi
-}
+sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
 
-# 逐个检测对等节点
-IFS=',' read -ra ADDR <<< "$peers"
-for peer in "${ADDR[@]}"; do
-  check_peer $peer
-done
-
-LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
-BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
+LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height);
+BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000));
 TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash) 
 
-echo $LATEST_HEIGHT $BLOCK_HEIGHT $TRUST_HASH
-if [ -z "$LATEST_HEIGHT" ] || [ -z "$BLOCK_HEIGHT" ] || [ -z "$TRUST_HASH" ]; then
-  echo "获取最新区块信息失败"
-  exit 1
-fi
+echo $LATEST_HEIGHT $BLOCK_HEIGHT $TRUST_HASH && sleep 2
 
 sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\1true| ;
 s|^(rpc_servers[[:space:]]+=[[:space:]]+).*$|\1\"$SNAP_RPC,$SNAP_RPC\"| ;
@@ -146,29 +92,8 @@ s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.to
 
 mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
 
-sudo systemctl restart junctiond
-if [ $? -ne 0 ]; then
-  echo "重启 junctiond 服务失败"
-  exit 1
-fi
+sudo systemctl restart junctiond && sudo journalctl -u junctiond -f
 
-# 检查同步状态 (假 -> 完成)
-sleep 10
-SYNC_STATUS=$(junctiond status 2>&1 | jq .sync_info)
-if [ -z "$SYNC_STATUS" ]; then
-  echo "节点同步状态检查失败"
-  exit 1
-fi
-
-echo $SYNC_STATUS
-
-# 同步完成后修改 rpc 地址
-sed -i 's|^laddr = "tcp://127.0.0.1:26657"|laddr = "tcp://0.0.0.0:26657"|g' $HOME/.junction/config/config.toml
-sudo systemctl restart junctiond
-if [ $? -ne 0 ]; then
-  echo "重启 junctiond 服务失败"
-  exit 1
-fi
 
 
 
