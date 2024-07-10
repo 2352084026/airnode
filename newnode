@@ -83,7 +83,13 @@ LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
 BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
 TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash) 
 
-echo $LATEST_HEIGHT $BLOCK_HEIGHT $TRUST_HASH && sleep 2
+if [ -z "$LATEST_HEIGHT" ] || [ -z "$BLOCK_HEIGHT" ] || [ -z "$TRUST_HASH" ]; then
+    echo "无法获取区块信息，请检查 SNAP_RPC 地址或网络连接。"
+    exit 1
+fi
+
+echo "最新高度: $LATEST_HEIGHT, 信任高度: $BLOCK_HEIGHT, 信任哈希: $TRUST_HASH"
+sleep 2
 
 sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\1true| ;
 s|^(rpc_servers[[:space:]]+=[[:space:]]+).*$|\1\"$SNAP_RPC,$SNAP_RPC\"| ;
@@ -95,6 +101,7 @@ mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_va
 
 echo "重新启动 junctiond 服务并跟踪日志..."
 sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
+
 
 
 
