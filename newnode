@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # 更新并安装依赖
 echo "更新和升级系统软件包..."
 sudo apt update && sudo apt upgrade -y
@@ -64,35 +66,19 @@ sudo systemctl enable junctiond
 echo "设置最低气体费用..."
 sed -i 's|minimum-gas-prices =.*|minimum-gas-prices = "0.0001amf"|g' $HOME/.junction/config/app.toml
 
-# 下载快照（每 24 小时）
-echo "下载快照并停止 junctiond 服务..."
-sudo systemctl stop junctiond
-cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
-curl https://node39.top/testnet/airchains/snapshot-airchains.tar.lz4 | lz4 -dc - | tar -xf - -C $HOME/.junction
-mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
-echo "重新启动 junctiond 服务并跟踪日志..."
-sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
-
-# 检查同步状态（假 -> 完成）
-echo "检查同步状态..."
-junctiond status 2>&1 | jq .sync_info
-
-# 同步完成后修改 rpc 地址
-echo "修改配置文件以设置 RPC 地址..."
-sed -i 's|laddr = "tcp://127.0.0.1:26657"|laddr = "tcp://0.0.0.0:26657"|g' $HOME/.junction/config/config.toml
-
-# 重置并配置节点
+# 停止 junctiond 服务并重置节点
 echo "停止 junctiond 服务并重置节点..."
 sudo systemctl stop junctiond
 
 cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
 junctiond tendermint unsafe-reset-all --home $HOME/.junction
 
+# 配置状态同步
 peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@178.63.18.157:19656,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656"
 
 sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
 
-SNAP_RPC="http://your-snap-rpc-endpoint:26657"
+SNAP_RPC="http://178.63.18.157:26657"
 LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
 BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
 TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash) 
@@ -109,6 +95,7 @@ mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_va
 
 echo "重新启动 junctiond 服务并跟踪日志..."
 sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
+
 
 
 
