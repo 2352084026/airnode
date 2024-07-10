@@ -1,5 +1,45 @@
 #!/bin/bash
 
+# 对等节点列表
+PEERS=(
+    "47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656"
+    "c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456"
+    "0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156"
+    "f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556"
+    "7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456"
+    "560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656"
+    "617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656"
+)
+
+# 检测对等节点是否可达
+echo "检测对等节点是否可达..."
+for PEER in "${PEERS[@]}"; do
+    ID=$(echo $PEER | cut -d '@' -f 1)
+    ADDR=$(echo $PEER | cut -d '@' -f 2)
+    HOST=$(echo $ADDR | cut -d ':' -f 1)
+    PORT=$(echo $ADDR | cut -d ':' -f 2)
+
+    echo "检测对等节点 $ID@$HOST:$PORT ..."
+
+    # 尝试连接对等节点
+    if nc -zv -w 5 $HOST $PORT; then
+        echo "$PEER 是正常的"
+    else
+        echo "$PEER 无法连接"
+        # 如果节点无法连接，将其从列表中移除
+        PEERS=("${PEERS[@]/$PEER}")
+    fi
+done
+
+# 如果没有可用的对等节点，退出脚本
+if [ ${#PEERS[@]} -eq 0 ]; then
+    echo "没有可用的对等节点，退出脚本。"
+    exit 1
+fi
+
+# 更新对等节点列表
+peers=$(IFS=, ; echo "${PEERS[*]}")
+
 # 更新并安装依赖项
 sudo apt update && sudo apt upgrade -y
 sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc -y
@@ -60,9 +100,6 @@ sudo systemctl stop junctiond
 cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
 junctiond tendermint unsafe-reset-all --home $HOME/.junction
 
-# 对等节点列表
-peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@airchains-testnet-peer.itrocket.net:19656,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656"
-
 SNAP_RPC="https://airchains-testnet-rpc.itrocket.net:443"
 
 sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
@@ -90,22 +127,6 @@ junctiond status 2>&1 | jq .sync_info
 sed -i 's|^laddr = "tcp://127.0.0.1:26657"|laddr = "tcp://0.0.0.0:26657"|g' $HOME/.junction/config/config.toml
 sudo systemctl restart junctiond
 
-# 检测对等节点是否可达
-for PEER in $(echo $peers | tr "," "\n"); do
-    ID=$(echo $PEER | cut -d '@' -f 1)
-    ADDR=$(echo $PEER | cut -d '@' -f 2)
-    HOST=$(echo $ADDR | cut -d ':' -f 1)
-    PORT=$(echo $ADDR | cut -d ':' -f 2)
-
-    echo "检测对等节点 $ID@$HOST:$PORT ..."
-
-    # 尝试连接对等节点
-    if nc -zv -w 5 $HOST $PORT; then
-        echo "$PEER 是正常的"
-    else
-        echo "$PEER 无法连接"
-    fi
-done
 
 
 
