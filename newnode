@@ -27,6 +27,16 @@ source $HOME/.profile
 echo "检查 GO 版本..."
 go version
 
+# 安装 Tendermint
+echo "下载并安装 Tendermint..."
+cd $HOME
+git clone https://github.com/tendermint/tendermint
+cd tendermint
+git checkout v0.34.0  # 替换为你需要的版本
+make install
+echo "检查 Tendermint 版本..."
+tendermint version
+
 # 下载并安装 Airchains 的 junctiond
 echo "下载并安装 Airchains 的 junctiond..."
 cd $HOME
@@ -107,7 +117,7 @@ LATEST_HEIGHT_OUTPUT=$(curl -s -L $SNAP_RPC/block)
 echo "LATEST_HEIGHT_OUTPUT: $LATEST_HEIGHT_OUTPUT"
 LATEST_HEIGHT=$(echo $LATEST_HEIGHT_OUTPUT | jq -r .result.block.header.height)
 echo "LATEST_HEIGHT: $LATEST_HEIGHT"
-if [ -z "$LATEST_HEIGHT" ]; then
+if [ -z "$LATEST_HEIGHT" ];then
     echo "无法获取最新区块高度"
     exit 1
 fi
@@ -148,6 +158,7 @@ mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_va
 echo "重新启动 junctiond 服务并跟踪日志..."
 sudo systemctl restart junctiond
 sudo journalctl -u junctiond -f --no-hostname -o cat
+
 
 
 
