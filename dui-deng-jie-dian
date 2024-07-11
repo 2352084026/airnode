@@ -1,126 +1,50 @@
 #!/bin/bash
 
-# 定义对等节点数组
-peers=(
-    "47f61921b54a652ca5241e2a7fc4ed8663091e89@178.63.18.157:19656"
-    "c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456"
-    "0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156"
-    "f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556"
-    "7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456"
-    "560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656"
-    "617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656"
-)
-
-# 获取 SNAP_RPC 地址
-SNAP_RPC="https://airchains-testnet-rpc.crouton.digital"
-
-# 检查对等节点连接性
-echo "检查对等节点连接性..."
-for peer in "${peers[@]}"; do
-    # 提取IP和端口
-    address=$(echo $peer | cut -d '@' -f 2)
-    ip=$(echo $address | cut -d ':' -f 1)
-    port=$(echo $address | cut -d ':' -f 2)
-
-    echo "检查对等节点 $ip:$port 的连接性..."
-
-    # 使用nc（netcat）检查连接
-    nc -z -v -w 5 $ip $port
-    if [ $? -eq 0 ]; then
-        echo "对等节点 $ip:$port 连接成功"
-    else
-        echo "对等节点 $ip:$port 无法连接"
-    fi
-done
-
-# 检查关键配置文件
-echo "检查关键配置文件..."
-if [ -f "$HOME/.junction/config/genesis.json" ]; then
-    echo "genesis.json 存在"
-else
-    echo "genesis.json 不存在"
-fi
-
-if [ -f "$HOME/.junction/config/addrbook.json" ]; then
-    echo "addrbook.json 存在"
-else
-    echo "addrbook.json 不存在"
-fi
-
-if [ -f "/usr/local/bin/junctiond" ]; then
-    echo "junctiond 可执行文件存在"
-else
-    echo "junctiond 可执行文件不存在"
-fi
-
-# 验证区块高度和信任哈希
-echo "验证区块高度和信任哈希..."
-LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
-BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
-TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash) 
-
-if [ -z "$LATEST_HEIGHT" ] || [ -z "$BLOCK_HEIGHT" ] || [ -z "$TRUST_HASH" ]; then
-    echo "无法获取区块信息，请检查 SNAP_RPC 地址或网络连接。"
-else
-    echo "最新高度: $LATEST_HEIGHT, 信任高度: $BLOCK_HEIGHT, 信任哈希: $TRUST_HASH"
-fi
-
-# 更新并安装依赖
-echo "更新和升级系统软件包..."
+# 更新和安装依赖
 sudo apt update && sudo apt upgrade -y
-echo "安装必要的软件包..."
-sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc netcat -y
+sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc -y
 
-# 安装 GO（amd64 - x86）
-echo "删除任何现有的 GO 安装..."
+# 安装 Go
 rm -rf $HOME/go
 sudo rm -rf /usr/local/go
-echo "下载并安装 GO..."
 cd $HOME
-curl -L https://dl.google.com/go/go1.21.8.linux-amd64.tar.gz | sudo tar -C /usr/local -zxvf -
+curl https://dl.google.com/go/go1.21.8.linux-amd64.tar.gz | sudo tar -C /usr/local -zxvf -
 cat <<'EOF' >>$HOME/.profile
 export GOROOT=/usr/local/go
 export GOPATH=$HOME/go
 export GO111MODULE=on
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 EOF
-echo "重新加载配置文件以应用 GO 环境变量..."
 source $HOME/.profile
-echo "检查 GO 版本..."
 go version
 
-# 下载并安装 Airchains 的 junctiond
-echo "下载并安装 Airchains 的 junctiond..."
+# 安装 Airchains
 cd $HOME
-wget https://storage.crouton.digital/testnet/airchains/bin/junctiond
+wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond
 chmod +x junctiond
 sudo mv junctiond /usr/local/bin/
-if [ ! -f /usr/local/bin/junctiond ]; then
-    echo "junctiond 文件不存在，请检查下载步骤。"
-    exit 1
-fi
-echo "检查 junctiond 版本..."
+cd $HOME
 junctiond version
 
-# 设置链条并命名空气链
-echo "初始化链条并命名..."
-junctiond init 333 --chain-id junction
+# 初始化 Airchains
+junctiond init "<修改成任意名>" --chain-id junction
 
 # 下载 Genesis 和地址簿
-echo "下载 Genesis 和地址簿..."
-mkdir -p $HOME/.junction/config
-curl -Ls https://storage.crouton.digital/testnet/airchains/files/genesis.json > $HOME/.junction/config/genesis.json
-curl -Ls https://storage.crouton.digital/testnet/airchains/files/addrbook.json > $HOME/.junction/config/addrbook.json
+curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json
+curl -Ls https://node39.top/testnet/airchains/addrbook.json > $HOME/.junction/config/addrbook.json
+
+# 配置 Peers
+peers="de2e7251667dee5de5eed98e54a58749fadd23d8@34.22.237.85:26656,1918bd71bc764c71456d10483f754884223959a5@35.240.206.208:26656,48887cbb310bb854d7f9da8d5687cbfca02b9968@35.200.245.190:26656,de2e7251667dee5de5eed98e54a58749fadd23d8@34.22.237.85:26656,8b72b2f2e027f8a736e36b2350f6897a5e9bfeaa@131.153.232.69:26656,d92c7efcb453ba2edab6d80ad6e3b692e3a7e4f5@49.13.120.225:26656,5c5989b5dee8cff0b379c4f7273eac3091c3137b@57.128.74.22:56256,e09fa8cc6b06b99d07560b6c33443023e6a3b9c6@65.21.131.187:26656,0305205b9c2c76557381ed71ac23244558a51099@162.55.65.162:26656,3e5f3247d41d2c3ceeef0987f836e9b29068a3e9@168.119.31.198:56256,086d19f4d7542666c8b0cac703f78d4a8d4ec528@135.148.232.105:26656,976a0fe0a0fa205478beb66addaae3842907c3f6@37.27.48.77:32656,7d6694fb464a9c9761992f695e6ba1d334403986@164.90.228.66:26656,b2e9bebc16bc35e16573269beba67ffea5932e13@95.111.239.250:26656,23152e91e3bd642bef6508c8d6bd1dbedccf9e56@95.111.237.24:26656,c1e9d12d80ec74b8ddbabdec9e0dad71337ba43f@135.181.82.176:26656,3b429f2c994fa76f9443e517fd8b72dcf60e6590@37.27.11.132:26656,84b6ccf69680c9459b3b78ca4ba80313fa9b315a@159.69.208.30:26656,e78a440c57576f3743e6aa9db00438462980927e@5.161.199.115:26656,49fb1316b22c71e455720af15dd552dafb9af39a@5.189.151.175:26656,e831fa909cce0d1807cfcf417e28e782530f5c94@161.97.66.254:26666,db38d672f66df4de01b26e1fa97e1632fbfb1bdf@173.249.57.190:26656,08a0014125bded5fe76b9dc3275b0a58b6841b43@116.203.184.36:26656,6025c1523ad0cd6926ef277cfcf46d82ebb43c21@116.203.24.46:26656,fed2e80e159a23bf9f71f980b501c2304cec2f6d@185.194.216.61:17656,1ad9bdeac0b06f585a9c64261d0705c4cbfd28e7@144.91.99.93:26656,a6384bd23bd728ffa9a8452b12fc865dadf51672@81.200.154.160:26656,5b31fdf605645b44ad615c8b79b1550540895fe5@35.214.147.230:26656,6a3a13d7631823eb6dcd00882243c913c819a125@38.242.196.100:26656,3e182e463425dfa6d4cef83f4bdd67c98c36eba3@195.26.243.208:47656,c97c7a9c11cf3cb059ce89c36f7ff219daa3ada4@195.26.246.26:26656,7d162ef2392d25720d7cdb2cfdf2ccf146e32bac@49.13.234.149:26656,5a161464aa73571f1b7e22204bcf3bdb6fb71f3b@195.26.241.184:26656,bff7c802021ed3b4aaf222da9d42280bfc5dad88@65.109.139.181:26656,c284cbda3ab197001136c39c9df8e45af2038513@34.93.143.222:26656,449297568d9d6d4aa51a93f7a1b1e92e1ec38619@65.108.242.9:26656,611440c7193678ec1cd0c60b55abfca07dfa27cd@95.217.161.97:26656,beec52199d4b28cab6fc3b2f2a2718c6667ac46a@37.27.19.95:26656,226b9c42e81cddd185d435348cd89f87fee37279@135.181.42.46:26656,479b63df84e247c55e80cccd9abbf7100a334fcc@65.108.156.83:26656"
+sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml
 
 # 创建服务
-echo "创建 junctiond 服务..."
 sudo tee /etc/systemd/system/junctiond.service > /dev/null <<EOF
 [Unit]
 Description=junctiond
 After=network-online.target
 [Service]
 User=root
-ExecStart=/usr/local/bin/junctiond start --rpc.pprof_laddr "127.0.0.1:6061"
+ExecStart=$(which junctiond) start
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
@@ -128,48 +52,25 @@ LimitNOFILE=65535
 WantedBy=multi-user.target
 EOF
 
-echo "重新加载 systemd 守护进程并启用 junctiond 服务..."
 sudo systemctl daemon-reload
 sudo systemctl enable junctiond
 
-# 设置最低气体费用
-echo "设置最低气体费用..."
+# 设置最小 gas 价格
 sed -i 's|minimum-gas-prices =.*|minimum-gas-prices = "0.0001amf"|g' $HOME/.junction/config/app.toml
 
-# 停止 junctiond 服务并重置节点
-echo "停止 junctiond 服务并重置节点..."
+# 下载快照（每 24 小时）
 sudo systemctl stop junctiond
-
 cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
-junctiond tendermint unsafe-reset-all --home $HOME/.junction
-
-# 配置状态同步
-peers="47f61921b54a652ca5241e2a7fc4ed8663091e89@178.63.18.157:19656,c40528f5674b281dfe8a799ba2475782f0b889c7@178.18.240.22:43456,0d03e79ef79687421ac6f4b1ddd6add67dd2d6a0@65.109.83.40:28156,f9fef92013828d8669712224299136b4632b4904@65.109.113.228:60556,7962edd332b1a2293ba6c865aa1f001d6b7cc460@75.119.151.235:43456,560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,617df4eeca8779a83d980aba7ff6617bf05a6489@65.109.52.247:63656"
-
-sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
-
-LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
-BLOCK_HEIGHT=$((LATEST_HEIGHT - 2000))
-TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash) 
-
-if [ -z "$LATEST_HEIGHT" ] || [ -z "$BLOCK_HEIGHT" ] || [ -z "$TRUST_HASH" ]; then
-    echo "无法获取区块信息，请检查 SNAP_RPC 地址或网络连接。"
-    exit 1
-fi
-
-echo "最新高度: $LATEST_HEIGHT, 信任高度: $BLOCK_HEIGHT, 信任哈希: $TRUST_HASH"
-sleep 2
-
-sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\1true| ;
-s|^(rpc_servers[[:space:]]+=[[:space:]]+).*$|\1\"$SNAP_RPC,$SNAP_RPC\"| ;
-s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\1$BLOCK_HEIGHT| ;
-s|^(trust_hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"| ;
-s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.toml
-
+curl https://node39.top/testnet/airchains/snapshort-airchains.tar.lz4 | lz4 -dc - | tar -xf - -C $HOME/.junction
 mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
+sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
 
-echo "重新启动 junctiond 服务并跟踪日志..."
+# 检查同步状态（同步完成后应为 false）
+junctiond status 2>&1 | jq .sync_info
+
+# 修改 RPC 地址
+sed -i 's|laddr =.*|laddr = "tcp://0.0.0.0:26657"|g' $HOME/.junction/config/config.toml
 sudo systemctl restart junctiond
-sudo journalctl -u junctiond -f --no-hostname -o cat
+
 
 
