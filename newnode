@@ -4,7 +4,7 @@
 echo "更新和升级系统软件包..."
 sudo apt update && sudo apt upgrade -y
 echo "安装必要的软件包..."
-sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc gdb libstdc++6 -y
+sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc -y
 
 # 安装 GO（amd64 - x86）
 echo "删除任何现有的 GO 安装..."
@@ -24,13 +24,16 @@ source $HOME/.profile
 echo "检查 GO 版本..."
 go version
 
-# 从源码编译 Airchains 的 junctiond
-echo "克隆并编译 Airchains 的 junctiond..."
+# 安装 Airchains（amd64）
+echo "下载并安装 Airchains 的 junctiond..."
 cd $HOME
-git clone https://github.com/airchains-network/junction.git
-cd junction
-make build
-sudo mv build/junctiond /usr/local/bin/
+wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond
+chmod +x junctiond
+sudo mv junctiond /usr/local/bin/
+if [ ! -f /usr/local/bin/junctiond ]; then
+    echo "junctiond 文件不存在，请检查下载步骤。"
+    exit 1
+fi
 echo "检查 junctiond 版本..."
 junctiond version
 
@@ -40,6 +43,7 @@ junctiond init 333 --chain-id junction
 
 # 下载 Genesis 和地址簿
 echo "下载 Genesis 和地址簿..."
+mkdir -p $HOME/.junction/config
 curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json
 curl -Ls https://node39.top/testnet/airchains/addrbook.json > $HOME/.junction/config/addrbook.json
 
@@ -103,6 +107,7 @@ mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_va
 echo "重新启动 junctiond 服务并跟踪日志..."
 sudo systemctl restart junctiond
 sudo journalctl -u junctiond -f --no-hostname -o cat
+
 
 
 
