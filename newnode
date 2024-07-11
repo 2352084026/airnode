@@ -7,7 +7,7 @@ SNAP_RPC="https://airchains-testnet-rpc.crouton.digital"
 echo "更新和升级系统软件包..."
 sudo apt update && sudo apt upgrade -y
 echo "安装必要的软件包..."
-sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc -y
+sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc netcat -y
 
 # 安装 GO（amd64 - x86）
 echo "删除任何现有的 GO 安装..."
@@ -109,6 +109,7 @@ mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_va
 echo "重新启动 junctiond 服务并跟踪日志..."
 sudo systemctl restart junctiond
 sudo journalctl -u junctiond -f --no-hostname -o cat
+
 
 
 
