@@ -157,7 +157,20 @@ mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_va
 
 echo "重新启动 junctiond 服务并跟踪日志..."
 sudo systemctl restart junctiond
+
+# 查找日志文件路径并处理日志编码
+LOG_PATH=$(sudo journalctl -u junctiond --no-pager -o cat | grep -oP '(?<=LogPath": ")[^"]+')
+
+if [ -n "$LOG_PATH" ]; then
+    echo "日志文件路径: $LOG_PATH"
+    sudo cat $LOG_PATH | iconv -f ISO-8859-1 -t UTF-8 > decoded_junctiond.log
+    echo "日志已转换并保存到 decoded_junctiond.log"
+else
+    echo "无法找到日志文件路径。"
+fi
+
 sudo journalctl -u junctiond -f --no-hostname -o cat
+
 
 
 
