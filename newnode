@@ -58,7 +58,7 @@ Description=junctiond
 After=network-online.target
 [Service]
 User=root
-ExecStart=/usr/local/bin/junctiond start --rpc.pprof_laddr "127.0.0.1:6061"
+ExecStart=/usr/local/bin/junctiond start --rpc.pprof_laddr "127.0.0.1:6061" --log_level debug
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
@@ -127,6 +127,7 @@ mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_va
 echo "重新启动 junctiond 服务并跟踪日志..."
 sudo systemctl restart junctiond
 sudo journalctl -u junctiond -f --no-hostname -o cat
+
 
 
 
