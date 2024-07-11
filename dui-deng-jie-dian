@@ -28,3 +28,24 @@ for peer in "${peers[@]}"; do
         echo "对等节点 $ip:$port 无法连接"
     fi
 done
+
+# 检查关键配置文件
+echo "检查关键配置文件..."
+if [ -f "$HOME/.junction/config/genesis.json" ]; then
+    echo "genesis.json 存在"
+else
+    echo "genesis.json 不存在"
+fi
+
+if [ -f "$HOME/.junction/config/addrbook.json" ]; then
+    echo "addrbook.json 存在"
+else
+    echo "addrbook.json 不存在"
+fi
+
+if [ -f "/usr/local/bin/junctiond" ]; then
+    echo "junctiond 可执行文件存在"
+else
+    echo "junctiond 可执行文件不存在"
+fi
+
