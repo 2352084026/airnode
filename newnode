@@ -58,7 +58,7 @@ Description=junctiond
 After=network-online.target
 [Service]
 User=root
-ExecStart=/usr/local/bin/junctiond start --rpc.pprof_laddr "127.0.0.1:6061" --log_level trace
+ExecStart=/usr/local/bin/junctiond start --rpc.pprof_laddr "127.0.0.1:6061"
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
@@ -122,11 +122,21 @@ s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\1$BLOCK_HEIGHT| ;
 s|^(trust_hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"| ;
 s|^(seeds[[:space:]]+=[[:space:]]+).*$|\1\"\"|" $HOME/.junction/config/config.toml
 
+# 更新 P2P 设置和日志级别
+sed -i 's|log_level =.*|log_level = "trace"|' $HOME/.junction/config/config.toml
+sed -i 's|max_num_inbound_peers =.*|max_num_inbound_peers = 100|' $HOME/.junction/config/config.toml
+sed -i 's|max_num_outbound_peers =.*|max_num_outbound_peers = 100|' $HOME/.junction/config/config.toml
+sed -i 's|flush_throttle_timeout =.*|flush_throttle_timeout = "100ms"|' $HOME/.junction/config/config.toml
+sed -i 's|dial_timeout =.*|dial_timeout = "10s"|' $HOME/.junction/config/config.toml
+sed -i 's|handshake_timeout =.*|handshake_timeout = "20s"|' $HOME/.junction/config/config.toml
+sed -i 's|persistent_peers_max_dial_period =.*|persistent_peers_max_dial_period = "30s"|' $HOME/.junction/config/config.toml
+
 mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
 
 echo "重新启动 junctiond 服务并跟踪日志..."
 sudo systemctl restart junctiond
 sudo journalctl -u junctiond -f --no-hostname -o cat
+
 
 
 
