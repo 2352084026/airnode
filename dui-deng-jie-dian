@@ -27,7 +27,7 @@ cd $HOME
 junctiond version
 
 # 初始化 Airchains
-junctiond init "<修改成任意名>" --chain-id junction
+junctiond init "333" --chain-id junction
 
 # 下载 Genesis 和地址簿
 curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json
