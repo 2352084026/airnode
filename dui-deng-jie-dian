@@ -103,11 +103,13 @@ init_app() {
 configure_peers() {
   echo "配置种子和对等节点..."
   SEEDS="1918bd71bc764c71456d10483f754884223959a5@35.240.206.208:26656"
-persistent_peers = "1918bd71bc764c71456d10483f754884223959a5@35.240.206.208:26656,8b72b2f2e027f8a736e36b2350f6897a5e9bfeaa@131.153.232.69:26656"
-  sed -i -e "s/^seeds *=.*/seeds = \"$SEEDS\"/; s/^persistent_peers *=.*/persistent_peers = \"$PEERS\"/" $HOME/.junction/config/config.toml
-  sed -i -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0amf\"/" $HOME/.junction/config/app.toml
-  sed -i -e 's|^indexer *=.*|indexer = "null"|' $HOME/.junction/config/config.toml
-  sed -i 's|^prometheus *=.*|prometheus = true|' $HOME/.junction/config/config.toml
+  PERSISTENT_PEERS="1918bd71bc764c71456d10483f754884223959a5@35.240.206.208:26656,8b72b2f2e027f8a736e36b2350f6897a5e9bfeaa@131.153.232.69:26656"
+  sed -i -e "s/^seeds *=.*/seeds = \"$SEEDS\"/" \
+         -e "s/^persistent_peers *=.*/persistent_peers = \"$PERSISTENT_PEERS\"/" \
+         -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0amf\"/" \
+         -e 's|^indexer *=.*|indexer = "null"|' \
+         -e 's|^prometheus *=.*|prometheus = true|' \
+         -e 's|^pex *=.*|pex = false|' $HOME/.junction/config/config.toml
 }
 
 # 配置修剪设置
@@ -179,7 +181,7 @@ EOF
 reset_node() {
   echo "停止并重置节点..."
   sudo systemctl stop junctiond
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ];then
     echo "停止 junctiond 服务时出错" >> error.log
     exit 1
   fi
@@ -195,9 +197,9 @@ reset_node() {
 # 配置状态同步
 configure_state_sync() {
   echo "配置状态同步..."
-  persistent_peers = "1918bd71bc764c71456d10483f754884223959a5@35.240.206.208:26656,8b72b2f2e027f8a736e36b2350f6897a5e9bfeaa@131.153.232.69:26656"
+  PERSISTENT_PEERS="1918bd71bc764c71456d10483f754884223959a5@35.240.206.208:26656,8b72b2f2e027f8a736e36b2350f6897a5e9bfeaa@131.153.232.69:26656"
   SNAP_RPC="https://airchains-testnet-rpc.crouton.digital/"
-  sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
+  sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$PERSISTENT_PEERS\"/" $HOME/.junction/config/config.toml
 
   LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
   if [ $? -ne 0 ];then
@@ -308,6 +310,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
