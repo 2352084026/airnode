@@ -66,7 +66,7 @@ setup_binary() {
   echo "下载并配置二进制文件..."
   if [ ! -f /usr/local/bin/junctiond ]; then
     wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond
-    if [ $? -ne 0 ]; then
+    if [ $? -ne 0 ];then
       echo "下载 junctiond 时出错" >> error.log
       exit 1
     fi
@@ -88,12 +88,12 @@ init_app() {
     fi
   fi
   wget -O $HOME/.junction/config/genesis.json https://testnet-files.syanodes.my.id/airchain-genesis.json
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ];then
     echo "下载 genesis.json 时出错" >> error.log
     exit 1
   fi
   wget -O $HOME/.junction/config/addrbook.json https://testnet-files.syanodes.my.id/airchain-addrbook.json
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ];then
     echo "下载 addrbook.json 时出错" >> error.log
     exit 1
   fi
@@ -168,7 +168,7 @@ EOF
   sudo systemctl daemon-reload
   sudo systemctl enable junctiond
   sudo systemctl start junctiond
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ];then
     echo "启动 junctiond 服务时出错" >> error.log
     exit 1
   fi
@@ -184,8 +184,9 @@ reset_node() {
     exit 1
   fi
   cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
+  rm -rf $HOME/.junction/data
   junctiond tendermint unsafe-reset-all --home $HOME/.junction
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ];then
     echo "重置节点时出错" >> error.log
     exit 1
   fi
@@ -233,7 +234,7 @@ configure_state_sync() {
 cleanup() {
   echo "删除之前下载的所有内容..."
   sudo systemctl stop junctiond
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ];then
     echo "停止 junctiond 服务时出错" >> error.log
   fi
   sudo systemctl disable junctiond
@@ -266,6 +267,7 @@ menu() {
       configure_pruning
       configure_ports
       setup_service
+      reset_node
       configure_state_sync
       ;;
     2)
@@ -307,6 +309,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
