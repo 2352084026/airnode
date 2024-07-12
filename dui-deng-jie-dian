@@ -156,7 +156,7 @@ After=network-online.target
 
 [Service]
 User=$USER
-ExecStart=$(which junctiond) start --home $HOME/.junction
+ExecStart=$(which junctiond) start --home $HOME/.junction --log_level debug --log_format json
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=65535
@@ -307,6 +307,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
