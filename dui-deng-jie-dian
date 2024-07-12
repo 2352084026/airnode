@@ -4,7 +4,15 @@
 install_dependencies() {
   echo "检查并安装系统软件包和依赖..."
   sudo apt update && sudo apt upgrade -y
+  if [ $? -ne 0 ]; then
+    echo "更新系统软件包时出错" >> error.log
+    exit 1
+  fi
   sudo apt install -y clang pkg-config libssl-dev curl git wget htop tmux build-essential jq make lz4 gcc unzip
+  if [ $? -ne 0 ]; then
+    echo "安装依赖时出错" >> error.log
+    exit 1
+  fi
 }
 
 # 检查并安装 Go
@@ -14,15 +22,31 @@ install_go() {
     echo "安装 Go..."
     cd $HOME
     sudo rm -rf /usr/local/go
+    if [ $? -ne 0 ]; then
+      echo "删除旧版本 Go 时出错" >> error.log
+      exit 1
+    fi
     echo "下载 Go 安装包..."
     curl -# -L https://go.dev/dl/go1.21.7.linux-amd64.tar.gz -o go1.21.7.linux-amd64.tar.gz
+    if [ $? -ne 0 ]; then
+      echo "下载 Go 安装包时出错" >> error.log
+      exit 1
+    fi
     sudo tar -xzf go1.21.7.linux-amd64.tar.gz -C /usr/local
+    if [ $? -ne 0 ]; then
+      echo "解压 Go 安装包时出错" >> error.log
+      exit 1
+    fi
     rm go1.21.7.linux-amd64.tar.gz
     eval $(echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee /etc/profile.d/golang.sh)
     eval $(echo 'export PATH=$PATH:$HOME/go/bin' | tee -a $HOME/.profile)
     source /etc/profile.d/golang.sh
     source $HOME/.profile
     go version
+    if [ $? -ne 0 ]; then
+      echo "安装 Go 失败" >> error.log
+      exit 1
+    fi
   else
     echo "Go 已安装，跳过安装步骤..."
   fi
@@ -42,6 +66,10 @@ setup_binary() {
   echo "下载并配置二进制文件..."
   if [ ! -f /usr/local/bin/junctiond ]; then
     wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond
+    if [ $? -ne 0 ]; then
+      echo "下载 junctiond 时出错" >> error.log
+      exit 1
+    fi
     chmod +x junctiond
     sudo mv junctiond /usr/local/bin
   else
@@ -54,9 +82,21 @@ init_app() {
   echo "初始化应用程序..."
   if [ ! -d "$HOME/.junction" ]; then
     junctiond init $MONIKER --chain-id $AIR_CHAIN_ID
+    if [ $? -ne 0 ]; then
+      echo "初始化应用程序时出错" >> error.log
+      exit 1
+    fi
   fi
   wget -O $HOME/.junction/config/genesis.json https://testnet-files.syanodes.my.id/airchain-genesis.json
+  if [ $? -ne 0 ]; then
+    echo "下载 genesis.json 时出错" >> error.log
+    exit 1
+  fi
   wget -O $HOME/.junction/config/addrbook.json https://testnet-files.syanodes.my.id/airchain-addrbook.json
+  if [ $? -ne 0 ]; then
+    echo "下载 addrbook.json 时出错" >> error.log
+    exit 1
+  fi
 }
 
 # 配置种子和对等节点
@@ -128,6 +168,10 @@ EOF
   sudo systemctl daemon-reload
   sudo systemctl enable junctiond
   sudo systemctl start junctiond
+  if [ $? -ne 0 ]; then
+    echo "启动 junctiond 服务时出错" >> error.log
+    exit 1
+  fi
   sudo journalctl -fu junctiond -o cat
 }
 
@@ -135,8 +179,16 @@ EOF
 reset_node() {
   echo "停止并重置节点..."
   sudo systemctl stop junctiond
+  if [ $? -ne 0 ]; then
+    echo "停止 junctiond 服务时出错" >> error.log
+    exit 1
+  fi
   cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
   junctiond tendermint unsafe-reset-all --home $HOME/.junction
+  if [ $? -ne 0 ]; then
+    echo "重置节点时出错" >> error.log
+    exit 1
+  fi
 }
 
 # 配置状态同步
@@ -147,9 +199,17 @@ configure_state_sync() {
 
   sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
 
-  LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height);
-  BLOCK_HEIGHT=$((LATEST_HEIGHT - 1000));
-  TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash) 
+  LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
+  if [ $? -ne 0 ]; then
+    echo "获取最新区块高度时出错" >> error.log
+    exit 1
+  fi
+  BLOCK_HEIGHT=$((LATEST_HEIGHT - 1000))
+  TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash)
+  if [ $? -ne 0 ]; then
+    echo "获取信任区块哈希时出错" >> error.log
+    exit 1
+  fi
 
   echo $LATEST_HEIGHT $BLOCK_HEIGHT $TRUST_HASH && sleep 2
 
@@ -161,13 +221,21 @@ configure_state_sync() {
 
   mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
 
-  sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
+  sudo systemctl restart junctiond
+  if [ $? -ne 0 ]; then
+    echo "重启 junctiond 服务时出错" >> error.log
+    exit 1
+  fi
+  sudo journalctl -u junctiond -f --no-hostname -o cat
 }
 
 # 删除所有内容
 cleanup() {
   echo "删除之前下载的所有内容..."
   sudo systemctl stop junctiond
+  if [ $? -ne 0 ]; then
+    echo "停止 junctiond 服务时出错" >> error.log
+  fi
   sudo systemctl disable junctiond
   sudo rm /etc/systemd/system/junctiond.service
   sudo systemctl daemon-reload
@@ -239,6 +307,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
