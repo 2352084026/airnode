@@ -201,13 +201,13 @@ configure_state_sync() {
   sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$peers\"/" $HOME/.junction/config/config.toml 
 
   LATEST_HEIGHT=$(curl -s $SNAP_RPC/block | jq -r .result.block.header.height)
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ];then
     echo "获取最新区块高度时出错" >> error.log
     exit 1
   fi
   BLOCK_HEIGHT=$((LATEST_HEIGHT - 1000))
   TRUST_HASH=$(curl -s "$SNAP_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash)
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ];then
     echo "获取信任区块哈希时出错" >> error.log
     exit 1
   fi
@@ -223,7 +223,7 @@ configure_state_sync() {
   mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
 
   sudo systemctl restart junctiond
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ];then
     echo "重启 junctiond 服务时出错" >> error.log
     exit 1
   fi
@@ -309,6 +309,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
