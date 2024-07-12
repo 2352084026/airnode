@@ -164,16 +164,27 @@ configure_state_sync() {
   sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
 }
 
+# 删除所有内容
+cleanup() {
+  echo "删除之前下载的所有内容..."
+  sudo systemctl stop junctiond
+  sudo systemctl disable junctiond
+  sudo rm /etc/systemd/system/junctiond.service
+  sudo systemctl daemon-reload
+  sudo rm -rf /usr/local/bin/junctiond $HOME/.junction $HOME/go /usr/local/go
+}
+
 # 菜单选项
 menu() {
   echo "1. 安装节点"
-  echo "2. 钱包管理"
-  echo "3. 验证者管理"
-  echo "4. 代币管理"
-  echo "5. 治理"
-  echo "6. 服务管理"
-  echo "7. 公用事业"
-  echo "8. 退出"
+  echo "2. 删除之前下载的所有内容"
+  echo "3. 钱包管理"
+  echo "4. 验证者管理"
+  echo "5. 代币管理"
+  echo "6. 治理"
+  echo "7. 服务管理"
+  echo "8. 公用事业"
+  echo "9. 退出"
   read -p "请选择一个选项: " choice
 
   case $choice in
@@ -190,30 +201,33 @@ menu() {
       configure_state_sync
       ;;
     2)
+      cleanup
+      ;;
+    3)
       echo "钱包管理选项"
       # 钱包管理选项逻辑
       ;;
-    3)
+    4)
       echo "验证者管理选项"
       # 验证者管理选项逻辑
       ;;
-    4)
+    5)
       echo "代币管理选项"
       # 代币管理选项逻辑
       ;;
-    5)
+    6)
       echo "治理选项"
       # 治理选项逻辑
       ;;
-    6)
+    7)
       echo "服务管理选项"
       # 服务管理选项逻辑
       ;;
-    7)
+    8)
       echo "公用事业选项"
       # 公用事业选项逻辑
       ;;
-    8)
+    9)
       exit 0
       ;;
     *)
@@ -225,6 +239,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
