@@ -82,7 +82,7 @@ init_app() {
   echo "初始化应用程序..."
   if [ ! -d "$HOME/.junction" ]; then
     junctiond init $MONIKER --chain-id $AIR_CHAIN_ID
-    if [ $? -ne 0 ]; then
+    if [ $? -ne 0 ];then
       echo "初始化应用程序时出错" >> error.log
       exit 1
     fi
@@ -106,7 +106,7 @@ configure_peers() {
   PERSISTENT_PEERS="1918bd71bc764c71456d10483f754884223959a5@35.240.206.208:26656,8b72b2f2e027f8a736e36b2350f6897a5e9bfeaa@131.153.232.69:26656"
   sed -i -e "s/^seeds *=.*/seeds = \"$SEEDS\"/" \
          -e "s/^persistent_peers *=.*/persistent_peers = \"$PERSISTENT_PEERS\"/" \
-         -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0amf\"/" \
+         -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0.0001amf\"/" \
          -e 's|^indexer *=.*|indexer = "null"|' \
          -e 's|^prometheus *=.*|prometheus = true|' \
          -e 's|^pex *=.*|pex = false|' $HOME/.junction/config/config.toml
@@ -158,7 +158,7 @@ After=network-online.target
 
 [Service]
 User=$USER
-ExecStart=$(which junctiond) start --home $HOME/.junction --log_level debug --log_format json
+ExecStart=$(which junctiond) start --home $HOME/.junction --log_level debug --log_format json --minimum-gas-prices=0.01amf
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=65535
@@ -310,6 +310,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
