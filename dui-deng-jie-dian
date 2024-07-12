@@ -1,18 +1,23 @@
 #!/bin/bash
 
-# 检查并安装依赖
+# 更新和安装依赖
 install_dependencies() {
   echo "检查并安装系统软件包和依赖..."
   sudo apt update && sudo apt upgrade -y
   sudo apt install -y clang pkg-config libssl-dev curl git wget htop tmux build-essential jq make lz4 gcc unzip
+}
 
-  # 检查并安装 Go
+# 检查并安装 Go
+install_go() {
   if ! command -v go &> /dev/null
   then
     echo "安装 Go..."
     cd $HOME
     sudo rm -rf /usr/local/go
-    curl -Ls https://go.dev/dl/go1.21.7.linux-amd64.tar.gz | sudo tar -xzf - -C /usr/local
+    echo "下载 Go 安装包..."
+    curl -# -L https://go.dev/dl/go1.21.7.linux-amd64.tar.gz -o go1.21.7.linux-amd64.tar.gz
+    sudo tar -xzf go1.21.7.linux-amd64.tar.gz -C /usr/local
+    rm go1.21.7.linux-amd64.tar.gz
     eval $(echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee /etc/profile.d/golang.sh)
     eval $(echo 'export PATH=$PATH:$HOME/go/bin' | tee -a $HOME/.profile)
     source /etc/profile.d/golang.sh
@@ -174,6 +179,7 @@ menu() {
   case $choice in
     1)
       install_dependencies
+      install_go
       set_vars
       setup_binary
       init_app
@@ -219,6 +225,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
