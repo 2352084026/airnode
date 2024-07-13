@@ -8,7 +8,7 @@ install_dependencies() {
     echo "更新系统软件包时出错" >> error.log
     exit 1
   fi
-  sudo apt install -y clang pkg-config libssl-dev curl git wget htop tmux build-essential jq make lz4 gcc unzip
+  sudo apt install -y clang pkg-config libssl-dev curl git wget htop tmux build-essential jq make lz4 gcc unzip gawk bison
   if [ $? -ne 0 ]; then
     echo "安装依赖时出错" >> error.log
     exit 1
@@ -340,6 +340,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
