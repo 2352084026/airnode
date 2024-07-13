@@ -1,14 +1,16 @@
 #!/bin/bash
 
-# 更新系统并安装依赖项
+# 更新和升级系统
 sudo apt update && sudo apt upgrade -y
-sudo apt-get install git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc -y
+
+# 安装依赖项
+sudo apt-get install -y git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc
 
 # 安装 GO
 rm -rf $HOME/go
 sudo rm -rf /usr/local/go
 cd $HOME
-curl https://dl.google.com/go/go1.21.8.linux-amd64.tar.gz | sudo tar -C/usr/local -zxvf -
+curl -L https://dl.google.com/go/go1.21.8.linux-amd64.tar.gz | sudo tar -C /usr/local -zxvf -
 cat <<'EOF' >>$HOME/.profile
 export GOROOT=/usr/local/go
 export GOPATH=$HOME/go
@@ -16,20 +18,9 @@ export GO111MODULE=on
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 EOF
 source $HOME/.profile
-go version
 
-# 更新 GLIBC
-GLIBC_VERSION="2.34"
-cd $HOME
-wget http://ftp.gnu.org/gnu/libc/glibc-$GLIBC_VERSION.tar.gz
-tar -xzf glibc-$GLIBC_VERSION.tar.gz
-cd glibc-$GLIBC_VERSION
-mkdir build
-cd build
-../configure --prefix=/usr
-make -j$(nproc)
-sudo make install
-sudo ldconfig
+# 验证 GO 安装
+go version
 
 # 安装 Airchains
 cd $HOME
@@ -37,17 +28,19 @@ wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junc
 chmod +x junctiond
 sudo mv junctiond /usr/local/bin/
 cd $HOME
+
+# 验证 Airchains 安装
 junctiond version
 
-# 设置链和名称
-# 请将 <Change-Name> 替换为你想要的名称
-junctiond init 333 --chain-id junction
+# 设置链条并命名空气链
+CHAIN_NAME="<Change-Name>"
+junctiond init $CHAIN_NAME --chain-id junction
 
-# 下载 Genesis 文件和地址簿
-curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json 
+# 下载 Genesis 和地址簿
+curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json
 curl -s https://snapshots-testnet.nodejumper.io/airchains-testnet/addrbook.json > $HOME/.junction/config/addrbook.json
 
-# 设置 Peers
+# 配置节点
 PEERS="560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,fa60f4730929eae83d00d9e21bb780b4defe6d03@89.58.28.79:11656,aeaf101d54d47f6c99b4755983b64e8504f6132d@65.21.202.124:28656,ed0fb297a9c8475bb4afacafdea5cf70aa2792d6@65.109.115.15:63656,3250f8c73d5ded86fa5d0a7b78e84715b9c03643@88.198.46.55:19656,7419a1b9753309f5f9d3c62daf882854cc0d7642@152.53.3.95:26656,2699379c4f0e3a17cf1cf6c6ed7f6a79a8fbb562@162.19.235.100:50512,82b3454d6b052703ffd0c7cafea8f69b04e700c3@161.97.145.120:26656,47f61921b54a652ca5241e2a7fc4ed8663091e89@178.63.18.157:19656,a9716527bc0c334553ff0e7df27cd9196bb89f30@92.118.58.126:43456"
 sed -i 's|^persistent_peers *=.*|persistent_peers = "'$PEERS'"|' $HOME/.junction/config/config.toml
 
@@ -69,22 +62,16 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable junctiond
 
-# 设置最小 gas 价格
+# 设置最低气体
 sed -i 's|minimum-gas-prices =.*|minimum-gas-prices = "0.0001amf"|g' $HOME/.junction/config/app.toml
 
-# 下载快照（每24小时更新一次）
+# 下载快照
 sudo systemctl stop junctiond
 cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
-curl https://snapshots-testnet.nodejumper.io/airchains-testnet/airchains-testnet_latest.tar.lz4 | lz4 -dc - | tar -xf - -C $HOME/.junction
+curl -L https://snapshots-testnet.nodejumper.io/airchains-testnet/airchains-testnet_latest.tar.lz4 | lz4 -dc - | tar -xf - -C $HOME/.junction
 mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
 sudo systemctl restart junctiond && sudo journalctl -u junctiond -f --no-hostname -o cat
 
-# 检查同步状态（如果输出为 False，则表示同步完成）
-junctiond status 2>&1 | jq .sync_info
-
-# 同步完成后修改 RPC 地址
-sed -i 's|laddr = "tcp://127.0.0.1:26657"|laddr = "tcp://0.0.0.0:26657"|' $HOME/.junction/config/config.toml
-sudo systemctl restart junctiond
 
 
 
