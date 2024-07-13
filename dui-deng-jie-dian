@@ -15,6 +15,34 @@ install_dependencies() {
   fi
 }
 
+# 安装 GLIBC 2.34
+install_glibc() {
+  echo "安装 GLIBC 2.34..."
+  mkdir -p $HOME/glibc-2.34
+  cd $HOME/glibc-2.34
+  wget http://ftp.gnu.org/gnu/libc/glibc-2.34.tar.gz
+  if [ $? -ne 0 ]; then
+    echo "下载 GLIBC 2.34 时出错" >> error.log
+    exit 1
+  fi
+  tar -xvzf glibc-2.34.tar.gz
+  cd glibc-2.34
+  mkdir build
+  cd build
+  ../configure --prefix=$HOME/glibc-2.34
+  make
+  if [ $? -ne 0 ]; then
+    echo "编译 GLIBC 2.34 时出错" >> error.log
+    exit 1
+  fi
+  make install
+  if [ $? -ne 0 ]; then
+    echo "安装 GLIBC 2.34 时出错" >> error.log
+    exit 1
+  fi
+  export LD_LIBRARY_PATH=$HOME/glibc-2.34/lib:$LD_LIBRARY_PATH
+}
+
 # 检查并安装 Go
 install_go() {
   if ! command -v go &> /dev/null
@@ -242,6 +270,7 @@ cleanup() {
   sudo rm /etc/systemd/system/junctiond.service
   sudo systemctl daemon-reload
   sudo rm -rf /usr/local/bin/junctiond $HOME/.junction $HOME/go /usr/local/go
+  rm -rf $HOME/glibc-2.34
 }
 
 # 菜单选项
@@ -260,6 +289,7 @@ menu() {
   case $choice in
     1)
       install_dependencies
+      install_glibc
       install_go
       set_vars
       setup_binary
@@ -310,6 +340,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
