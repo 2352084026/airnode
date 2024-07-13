@@ -18,6 +18,19 @@ EOF
 source $HOME/.profile
 go version
 
+# 更新 GLIBC
+GLIBC_VERSION="2.34"
+cd $HOME
+wget http://ftp.gnu.org/gnu/libc/glibc-$GLIBC_VERSION.tar.gz
+tar -xzf glibc-$GLIBC_VERSION.tar.gz
+cd glibc-$GLIBC_VERSION
+mkdir build
+cd build
+../configure --prefix=/usr
+make -j4
+sudo make install
+sudo ldconfig
+
 # 安装 Airchains
 cd $HOME
 wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond
@@ -27,8 +40,8 @@ cd $HOME
 junctiond version
 
 # 设置链和名称
-# 请将 333 替换为你想要的名称
-junctiond init <Change-Name> --chain-id junction
+# 请将 <Change-Name> 替换为你想要的名称
+junctiond init 333 --chain-id junction
 
 # 下载 Genesis 文件和地址簿
 curl -Ls https://node39.top/testnet/airchains/genesis.json > $HOME/.junction/config/genesis.json 
@@ -72,6 +85,7 @@ junctiond status 2>&1 | jq .sync_info
 # 同步完成后修改 RPC 地址
 sed -i 's|laddr = "tcp://127.0.0.1:26657"|laddr = "tcp://0.0.0.0:26657"|' $HOME/.junction/config/config.toml
 sudo systemctl restart junctiond
+
 
 
 
