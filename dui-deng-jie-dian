@@ -34,12 +34,10 @@ set_vars() {
   source $HOME/.bash_profile
 }
 
-# 下载并使用 Junction
+# 下载并设置 Junction
 setup_junction() {
   echo "下载并设置 Junction..."
-  if [ -d "$HOME/junction" ]; then
-    rm -rf $HOME/junction
-  fi
+  mkdir -p $HOME/go/bin
   wget https://example.com/path/to/junction -O $HOME/go/bin/junctiond
   if [ $? -ne 0 ]; then
     echo "下载 Junction 二进制文件时出错" >> error.log
@@ -277,6 +275,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
