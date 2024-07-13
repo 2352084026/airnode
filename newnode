@@ -33,7 +33,7 @@ cd $HOME
 junctiond version
 
 # 设置链条并命名空气链
-CHAIN_NAME="<Change-Name>"
+CHAIN_NAME="acc"
 junctiond init $CHAIN_NAME --chain-id junction
 
 # 下载 Genesis 和地址簿
