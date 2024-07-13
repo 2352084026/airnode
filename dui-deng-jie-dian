@@ -67,7 +67,7 @@ init_app() {
     exit 1
   fi
   wget -O $HOME/.junction/config/addrbook.json https://testnet-files.syanodes.my.id/airchain-addrbook.json
-  if [ $? -ne 0 ]; then
+  if [ $? -ne 0 ];then
     echo "下载 addrbook.json 时出错" >> error.log
     exit 1
   fi
@@ -282,6 +282,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
