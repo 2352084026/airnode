@@ -8,7 +8,7 @@ install_dependencies() {
     echo "更新系统软件包时出错" >> error.log
     exit 1
   fi
-  sudo apt install -y clang pkg-config libssl-dev curl git wget htop tmux build-essential jq make lz4 gcc unzip gawk bison
+  sudo apt install -y clang pkg-config libssl-dev curl git wget htop tmux build-essential jq make lz4 gcc unzip gawk bison flex autoconf
   if [ $? -ne 0 ]; then
     echo "安装依赖时出错" >> error.log
     exit 1
@@ -30,6 +30,10 @@ install_glibc() {
   mkdir build
   cd build
   ../configure --prefix=$HOME/glibc-2.34
+  if [ $? -ne 0 ]; then
+    echo "配置 GLIBC 2.34 时出错" >> error.log
+    exit 1
+  fi
   make
   if [ $? -ne 0 ]; then
     echo "编译 GLIBC 2.34 时出错" >> error.log
@@ -340,6 +344,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
