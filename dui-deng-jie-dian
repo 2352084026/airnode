@@ -1,14 +1,24 @@
 #!/bin/bash
 
+# 等待并获取锁文件
+wait_for_lock() {
+  echo "等待获取锁文件..."
+  while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+    echo "等待缓存锁：无法获取锁 /var/lib/dpkg/lock-frontend。它被进程 $(sudo fuser /var/lib/dpkg/lock-frontend 2>&1) 持有"
+    sleep 5
+  done
+}
+
 # 更新和安装依赖
 install_dependencies() {
   echo "检查并安装系统软件包和依赖..."
+  wait_for_lock
   sudo apt update && sudo apt upgrade -y
   if [ $? -ne 0 ]; then
     echo "更新系统软件包时出错" >> error.log
     exit 1
   fi
-  sudo apt install -y curl git wget htop tmux build-essential jq make lz4 gcc unzip
+  sudo apt install -y curl git wget htop tmux build-essential jq lz4 gcc unzip
   if [ $? -ne 0 ]; then
     echo "安装依赖时出错" >> error.log
     exit 1
@@ -24,25 +34,18 @@ set_vars() {
   source $HOME/.bash_profile
 }
 
-# 下载并编译 Junction
+# 下载并使用 Junction
 setup_junction() {
-  echo "下载并编译 Junction..."
+  echo "下载并设置 Junction..."
   if [ -d "$HOME/junction" ]; then
     rm -rf $HOME/junction
   fi
-  wget https://github.com/airchains/junction/archive/refs/heads/main.zip -O junction.zip
+  wget https://example.com/path/to/junction -O $HOME/go/bin/junctiond
   if [ $? -ne 0 ]; then
-    echo "下载 Junction 压缩包时出错" >> error.log
+    echo "下载 Junction 二进制文件时出错" >> error.log
     exit 1
   fi
-  unzip junction.zip -d $HOME
-  mv $HOME/junction-main $HOME/junction
-  cd $HOME/junction
-  make install
-  if [ $? -ne 0 ]; then
-    echo "编译 Junction 时出错" >> error.log
-    exit 1
-  fi
+  chmod +x $HOME/go/bin/junctiond
 }
 
 # 初始化应用程序
@@ -274,6 +277,7 @@ menu() {
 
 # 显示菜单
 menu
+
 
 
 
