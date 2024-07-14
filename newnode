@@ -79,10 +79,12 @@ function check_and_repair_db() {
 }
 
 # 下载快照
+echo "停止服务并下载快照..."
 sudo systemctl stop junctiond
 cp $HOME/.junction/data/priv_validator_state.json $HOME/.junction/priv_validator_state.json.backup
 SNAPSHOT_FILE="$HOME/airchains-testnet_latest.tar.lz4"
 curl -L https://snapshots-testnet.nodejumper.io/airchains-testnet/airchains-testnet_latest.tar.lz4 -o $SNAPSHOT_FILE
+echo "解压快照文件..."
 lz4 -dc $SNAPSHOT_FILE | tar -xf - -C $HOME/.junction
 rm -f $SNAPSHOT_FILE
 mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
@@ -93,8 +95,11 @@ if [ ! -d "$HOME/.junction/data" ]; then
   exit 1
 fi
 
-# 重启服务并检查日志
+# 检查并修复数据库
 check_and_repair_db
+
+# 重启服务并检查日志
+echo "重启服务..."
 sudo systemctl restart junctiond
 sleep 5
 
@@ -107,6 +112,7 @@ fi
 
 echo "服务已成功启动。请使用以下命令手动查看日志："
 echo "sudo journalctl -u junctiond -f --no-hostname -o cat"
+
 
 
 
