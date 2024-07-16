@@ -1,44 +1,65 @@
 #!/bin/bash
 
-# 安装 Docker
-sudo apt update && sudo apt install -y docker.io
+# 函数：检查并修复数据库
+function check_and_repair_db() {
+    echo "检查并修复数据库..."
+    junctiond unsafe-reset-all --home $HOME/.junction
+}
 
-# 启动 Docker 服务
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# 创建 Dockerfile 文件
-cat <<EOF > Dockerfile
-# Dockerfile
-FROM ubuntu:20.04
-
-# 设置时区环境变量
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
+# 清理系统
+echo "清理系统..."
+sudo apt-get autoremove -y
+sudo apt-get autoclean -y
+sudo dpkg --configure -a
+sudo apt-get install -f
 
 # 更新和升级系统
-RUN apt update && apt upgrade -y
+echo "更新和升级系统..."
+sudo apt update && sudo apt upgrade -y
+
+# 检查并安装 Docker
+if ! command -v docker &> /dev/null; then
+    echo "安装 Docker..."
+    sudo apt-get remove docker docker-engine docker.io containerd runc -y
+    sudo apt-get update
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+    sudo systemctl start docker
+    sudo systemctl enable docker
+fi
+
+# 验证 Docker 安装
+docker version
+
+# 创建 Dockerfile 文件
+echo "创建 Dockerfile..."
+cat <<EOF > Dockerfile
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 # 安装依赖项
-RUN apt-get install -y git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc tzdata
+RUN apt-get update && \
+    apt-get install -y git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc && \
+    apt-get install -y tzdata && \
+    ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    dpkg-reconfigure --frontend noninteractive tzdata
 
 # 安装 GO
-RUN rm -rf /usr/local/go && \\
-    curl -L https://dl.google.com/go/go1.21.8.linux-amd64.tar.gz | tar -C /usr/local -zxvf - && \\
-    mkdir -p /root/go/bin /root/go/pkg /root/go/src
+RUN rm -rf /usr/local/go && \
+    curl -L https://dl.google.com/go/go1.21.8.linux-amd64.tar.gz | tar -C /usr/local -zxvf -
 
+# 配置环境变量
 ENV GOROOT=/usr/local/go
 ENV GOPATH=/root/go
 ENV GO111MODULE=on
-ENV PATH=\$PATH:/usr/local/go/bin:/root/go/bin
+ENV PATH=$PATH:/usr/local/go/bin:/root/go/bin
 
 # 验证 GO 安装
 RUN go version
 
 # 安装 Airchains
-WORKDIR /root
-RUN wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond && \\
-    chmod +x junctiond && \\
+RUN wget https://github.com/airchains-network/junction/releases/download/v0.1.0/junctiond && \
+    chmod +x junctiond && \
     mv junctiond /usr/local/bin/
 
 # 验证 Airchains 安装
@@ -48,45 +69,56 @@ RUN junctiond version
 RUN junctiond init acc --chain-id junction
 
 # 下载 Genesis 和地址簿
-RUN curl -Ls https://node39.top/testnet/airchains/genesis.json > /root/.junction/config/genesis.json && \\
+RUN curl -Ls https://node39.top/testnet/airchains/genesis.json > /root/.junction/config/genesis.json && \
     curl -s https://snapshots-testnet.nodejumper.io/airchains-testnet/addrbook.json > /root/.junction/config/addrbook.json
 
 # 配置节点
-RUN sed -i 's|^persistent_peers *=.*|persistent_peers = "560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,fa60f4730929eae83d00d9e21bb780b4defe6d03@89.58.28.79:11656,aeaf101d54d47f6c99b4755983b64e8504f6132d@65.21.202.124:28656,ed0fb297a9c8475bb4afacafdea5cf70aa2792d6@65.109.115.15:63656,3250f8c73d5ded86fa5d0a7b78e84715b9c03643@88.198.46.55:19656,7419a1b9753309f5f9d3c62daf882854cc0d7642@152.53.3.95:26656,2699379c4f0e3a17cf1cf6c6ed7f6a79a8fbb562@162.19.235.100:50512,82b3454d6b052703ffd0c7cafea8f69b04e700c3@161.97.145.120:26656,47f61921b54a652ca5241e2a7fc4ed8663091e89@178.63.18.157:19656,a9716527bc0c334553ff0e7df27cd9196bb89f30@92.118.58.126:43456"|' /root/.junction/config/config.toml
-
-# 优化配置文件以提高性能
-RUN sed -i 's/^max_num_inbound_peers = .*/max_num_inbound_peers = 100/' /root/.junction/config/config.toml && \\
-    sed -i 's/^max_num_outbound_peers = .*/max_num_outbound_peers = 100/' /root/.junction/config/config.toml && \\
-    sed -i 's/^timeout_commit = ".*"/timeout_commit = "1s"/' /root/.junction/config/config.toml && \\
-    sed -i 's/^snapshot-interval = .*/snapshot-interval = 1000/' /root/.junction/config/app.toml && \\
+RUN sed -i 's|^persistent_peers *=.*|persistent_peers = "560162c4502aea50d271b66d220fadeb5cd17038@37.27.68.29:22656,fa60f4730929eae83d00d9e21bb780b4defe6d03@89.58.28.79:11656,aeaf101d54d47f6c99b4755983b64e8504f6132d@65.21.202.124:28656,ed0fb297a9c8475bb4afacafdea5cf70aa2792d6@65.109.115.15:63656,3250f8c73d5ded86fa5d0a7b78e84715b9c03643@88.198.46.55:19656,7419a1b9753309f5f9d3c62daf882854cc0d7642@152.53.3.95:26656,2699379c4f0e3a17cf1cf6c6ed7f6a79a8fbb562@162.19.235.100:50512,82b3454d6b052703ffd0c7cafea8f69b04e700c3@161.97.145.120:26656,47f61921b54a652ca5241e2a7fc4ed8663091e89@178.63.18.157:19656,a9716527bc0c334553ff0e7df27cd9196bb89f30@92.118.58.126:43456"|' /root/.junction/config/config.toml && \
+    sed -i 's/^max_num_inbound_peers = .*/max_num_inbound_peers = 100/' /root/.junction/config/config.toml && \
+    sed -i 's/^max_num_outbound_peers = .*/max_num_outbound_peers = 100/' /root/.junction/config/config.toml && \
+    sed -i 's/^timeout_commit = ".*"/timeout_commit = "1s"/' /root/.junction/config/config.toml && \
+    sed -i 's/^snapshot-interval = .*/snapshot-interval = 1000/' /root/.junction/config/app.toml && \
     sed -i 's/^indexer = .*/indexer = "null"/' /root/.junction/config/config.toml
 
 # 设置最低气体
 RUN sed -i 's|minimum-gas-prices =.*|minimum-gas-prices = "0.0001amf"|g' /root/.junction/config/app.toml
 
-# 下载快照并解压
-RUN curl -L https://snapshots-testnet.nodejumper.io/airchains-testnet/airchains-testnet_latest.tar.lz4 -o /root/airchains-testnet_latest.tar.lz4 && \\
-    lz4 -dc /root/airchains-testnet_latest.tar.lz4 | tar -xf - -C /root/.junction && \\
-    rm -f /root/airchains-testnet_latest.tar.lz4
+# 创建 priv_validator_state.json 文件
+RUN if [ ! -f "/root/.junction/data/priv_validator_state.json" ]; then \
+    mkdir -p /root/.junction/data && \
+    cat <<EOF > /root/.junction/data/priv_validator_state.json
+{
+    "height": "0",
+    "round": 0,
+    "step": 0
+}
+EOF
+fi
 
-# 检查 priv_validator_state.json 文件是否存在，如果不存在则创建一个新的
-RUN if [ ! -f "/root/.junction/data/priv_validator_state.json" ]; then \\
-    echo "priv_validator_state.json 文件不存在，创建一个新的..." && \\
-    echo '{"height": "0", "round": 0, "step": 0}' > /root/.junction/data/priv_validator_state.json; \\
-    fi
+# 暴露端口
+EXPOSE 26656 26657 1317
 
-# 启动节点
+# 启动命令
 CMD ["junctiond", "start"]
 EOF
 
 # 构建 Docker 镜像
-sudo docker build -t airchains-node .
+echo "构建 Docker 镜像..."
+docker build -t airchains-node .
 
 # 运行 Docker 容器
-sudo docker run -d --name airchains-node -p 26656:26656 -p 26657:26657 airchains-node
+echo "运行 Docker 容器..."
+docker run -d --name airchains-node -p 26656:26656 -p 26657:26657 -p 1317:1317 airchains-node
 
-# 检查 Docker 容器日志
-sudo docker logs -f airchains-node
+# 检查 Docker 容器状态
+docker ps -a
+
+# 检查节点状态
+curl http://213.199.37.164:26657/status
+
+# 检查交易池状态
+curl http://213.199.37.164:26657/txs
+
 
 
 
