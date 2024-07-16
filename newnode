@@ -3,9 +3,6 @@
 # 更新和升级系统
 sudo apt update && sudo apt upgrade -y
 
-# 安装依赖项
-sudo apt-get install -y git curl build-essential make jq gcc snapd chrony lz4 tmux unzip bc
-
 # 安装 Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sh get-docker.sh
@@ -87,4 +84,5 @@ docker run -d --name airchains-node -p 26657:26657 -p 26656:26656 airchains-node
 
 # 检查 Docker 容器日志
 docker logs -f airchains-node
+
 
