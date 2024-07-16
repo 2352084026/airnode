@@ -6,8 +6,20 @@ sudo apt update && sudo apt upgrade -y
 # 安装 Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sh get-docker.sh
+
+# 确保 Docker 正在运行
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# 确保当前用户加入 docker 组
 sudo usermod -aG docker $USER
 newgrp docker
+
+# 检查 Docker 是否成功安装
+if ! docker --version; then
+    echo "Docker 安装失败，请检查安装步骤。"
+    exit 1
+fi
 
 # 创建 Dockerfile
 cat <<'EOF' > Dockerfile
@@ -84,5 +96,6 @@ docker run -d --name airchains-node -p 26657:26657 -p 26656:26656 airchains-node
 
 # 检查 Docker 容器日志
 docker logs -f airchains-node
+
 
 
