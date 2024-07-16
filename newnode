@@ -89,6 +89,19 @@ lz4 -dc $SNAPSHOT_FILE | tar -xf - -C $HOME/.junction
 rm -f $SNAPSHOT_FILE
 mv $HOME/.junction/priv_validator_state.json.backup $HOME/.junction/data/priv_validator_state.json
 
+# 检查 priv_validator_state.json 文件是否存在，如果不存在则创建一个新的
+PRIV_VALIDATOR_STATE="$HOME/.junction/data/priv_validator_state.json"
+if [ ! -f "$PRIV_VALIDATOR_STATE" ]; then
+    echo "priv_validator_state.json 文件不存在，创建一个新的..."
+    cat <<EOF > $PRIV_VALIDATOR_STATE
+{
+    "height": "0",
+    "round": 0,
+    "step": 0
+}
+EOF
+fi
+
 # 检查数据完整性
 if [ ! -d "$HOME/.junction/data" ]; then
   echo "数据目录不存在，请检查快照下载是否成功。"
@@ -112,6 +125,17 @@ fi
 
 echo "服务已成功启动。请使用以下命令手动查看日志："
 echo "sudo journalctl -u junctiond -f --no-hostname -o cat"
+
+# 添加错误处理
+echo "添加错误处理..."
+sudo tee /etc/systemd/system/junctiond.service.d/override.conf > /dev/null <<EOF
+[Service]
+Environment=GOTRACEBACK=all
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart junctiond
+
 
 
 
