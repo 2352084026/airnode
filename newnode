@@ -116,15 +116,28 @@ echo "重启服务..."
 sudo systemctl restart junctiond
 sleep 5
 
-# 检查服务状态
+# 检查服务状态并调试输出
+echo "检查 junctiond 服务状态..."
+STATUS_OUTPUT=$(junctiond status 2>&1)
+echo "$STATUS_OUTPUT"
+echo "$STATUS_OUTPUT" | jq .sync_info
+
+# 检查输出是否为 JSON 格式
+if ! echo "$STATUS_OUTPUT" | jq . >/dev/null 2>&1; then
+    echo "junctiond status 返回的内容不是有效的 JSON 格式，请检查服务状态和日志。"
+    exit 1
+fi
+
+# 检查服务是否正常运行
 if ! systemctl is-active --quiet junctiond; then
-  echo "服务启动失败，请检查日志以获取更多信息。"
-  sudo journalctl -u junctiond -n 50 --no-pager
-  exit 1
+    echo "服务启动失败，请检查日志以获取更多信息。"
+    sudo journalctl -u junctiond -n 50 --no-pager
+    exit 1
 fi
 
 echo "服务已成功启动。请使用以下命令手动查看日志："
 echo "sudo journalctl -u junctiond -f --no-hostname -o cat"
+
 
 
 
